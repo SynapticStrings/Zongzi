@@ -1,11 +1,11 @@
 defmodule Zongzi.TimelineTest do
   use ExUnit.Case
 
-  alias Zongzi.Timeline.Tick
-
   test "关于刻的声明" do
-    # 依照 MIDI 的定义。
-    assert Tick.ticks_per_quarter_note() == 480
+    # guard macros cannot be called directly in tests; use require + guard context
+    require Zongzi.Timeline.Tick
+    assert Zongzi.Timeline.Tick.is_numeric_tick(480)
+    assert Zongzi.Timeline.Tick.is_dynamic_tick(:dynamic_tick)
   end
 
   describe "刻与小节的互换" do

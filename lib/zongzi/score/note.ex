@@ -243,5 +243,4 @@ defmodule Zongzi.Score.Note do
     }
     |> new()
   end
-
 end

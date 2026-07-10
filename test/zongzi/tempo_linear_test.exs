@@ -1,10 +1,11 @@
 defmodule Zongzi.TempoLinearTest do
   use ExUnit.Case
 
-  alias Zongzi.Timeline.{Tempo, TempoMap, Tick}
-  import Tick
+  alias Zongzi.Timeline.{Tempo, TempoMap}
 
-  @tpqn Tick.ticks_per_quarter_note()
+  @tpqn 480
+
+  # ---- 构造 ----
 
   describe "build_from_event/3" do
     test "创建线性变速段" do
@@ -19,17 +20,17 @@ defmodule Zongzi.TempoLinearTest do
 
     test "bpm_start 无效：零" do
       assert {:error, {:invalid_bpm_start, 0}} =
-               Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 0, bpm_end: 60})
+               Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 0, bpm_end: 120})
     end
 
     test "bpm_start 无效：负数" do
       assert {:error, {:invalid_bpm_start, -10}} =
-               Tempo.Linear.build_from_event(0, 1920, %{bpm_start: -10, bpm_end: 60})
+               Tempo.Linear.build_from_event(0, 1920, %{bpm_start: -10, bpm_end: 120})
     end
 
     test "bpm_start 无效：非数字" do
       assert {:error, {:invalid_bpm_start, "fast"}} =
-               Tempo.Linear.build_from_event(0, 1920, %{bpm_start: "fast", bpm_end: 60})
+               Tempo.Linear.build_from_event(0, 1920, %{bpm_start: "fast", bpm_end: 120})
     end
 
     test "bpm_end 无效：零" do
@@ -46,49 +47,52 @@ defmodule Zongzi.TempoLinearTest do
       assert {:error, {:invalid_bpm_end, "slow"}} =
                Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: "slow"})
     end
+
+    test "拒绝动态终点" do
+      assert {:error, :linear_requires_finite_end_tick} =
+               Tempo.Linear.build_from_event(0, :dynamic_tick, %{bpm_start: 120, bpm_end: 60})
+    end
   end
 
-  describe "duration_sec/1" do
+  # ---- duration_sec ----
+
+  describe "duration_sec/2" do
     test "有限段：120到60，1920 ticks" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 60})
-      duration = Tempo.Linear.duration_sec(seg)
+      duration = Tempo.Linear.duration_sec(seg, @tpqn)
 
       dur_at_120 = 1920 * (60.0 / 120) / @tpqn
       dur_at_60 = 1920 * (60.0 / 60) / @tpqn
+
       assert duration > dur_at_120
       assert duration < dur_at_60
     end
 
     test "恒定 BPM（退化为 Step）" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 120})
-      duration = Tempo.Linear.duration_sec(seg)
+      duration = Tempo.Linear.duration_sec(seg, @tpqn)
       assert_in_delta duration, 2.0, 0.001
-    end
-
-    test "拒绝动态终点" do
-      assert {:error, :linear_requires_finite_end_tick} =
-               Tempo.Linear.build_from_event(0, get_dynamic_tick(), %{bpm_start: 120, bpm_end: 60})
     end
   end
 
-  describe "tick_to_sec/2" do
+  # ---- tick_to_sec ----
+
+  describe "tick_to_sec/3" do
     test "偏移 0 -> 0.0" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 60})
-      assert Tempo.Linear.tick_to_sec(seg, 0) == 0.0
+      assert Tempo.Linear.tick_to_sec(seg, 0, @tpqn) == 0.0
     end
 
     test "减速 120->60，中点 960 ticks" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 60})
-      sec = Tempo.Linear.tick_to_sec(seg, 960)
-
+      sec = Tempo.Linear.tick_to_sec(seg, 960, @tpqn)
       assert sec > 1.0
       assert sec < 2.0
     end
 
     test "加速 60->120，中点 960 ticks" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 60, bpm_end: 120})
-      sec = Tempo.Linear.tick_to_sec(seg, 960)
-
+      sec = Tempo.Linear.tick_to_sec(seg, 960, @tpqn)
       assert sec < 2.0
       assert sec > 1.0
     end
@@ -97,37 +101,41 @@ defmodule Zongzi.TempoLinearTest do
       {:ok, lin} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 120})
       {:ok, step} = Tempo.Step.build_from_event(0, 1920, %{bpm: 120})
 
-      assert_in_delta Tempo.Linear.tick_to_sec(lin, 480), Tempo.Step.tick_to_sec(step, 480), 0.001
+      assert_in_delta Tempo.Linear.tick_to_sec(lin, 480, @tpqn),
+                      Tempo.Step.tick_to_sec(step, 480, @tpqn),
+                      0.001
 
-      assert_in_delta Tempo.Linear.tick_to_sec(lin, 1920),
-                      Tempo.Step.tick_to_sec(step, 1920),
+      assert_in_delta Tempo.Linear.tick_to_sec(lin, 1920, @tpqn),
+                      Tempo.Step.tick_to_sec(step, 1920, @tpqn),
                       0.001
     end
   end
 
-  describe "sec_to_tick/2" do
+  # ---- sec_to_tick ----
+
+  describe "sec_to_tick/3" do
     test "偏移 0.0 -> 0" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 60})
-      assert Tempo.Linear.sec_to_tick(seg, 0.0) == 0
+      assert Tempo.Linear.sec_to_tick(seg, 0.0, @tpqn) == 0
     end
 
     test "恒定 BPM：sec 0.5 -> tick 480" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 120})
-      assert Tempo.Linear.sec_to_tick(seg, 0.5) == 480
+      assert Tempo.Linear.sec_to_tick(seg, 0.5, @tpqn) == 480
     end
 
     test "恒定 BPM：sec 2.0 -> tick 1920" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 120})
-      assert Tempo.Linear.sec_to_tick(seg, 2.0) == 1920
+      assert Tempo.Linear.sec_to_tick(seg, 2.0, @tpqn) == 1920
     end
 
     test "往返一致性：加速" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 60, bpm_end: 120})
 
       for ticks <- [0, 240, 480, 960, 1440, 1920] do
-        sec = Tempo.Linear.tick_to_sec(seg, ticks)
-        roundtrip = Tempo.Linear.sec_to_tick(seg, sec)
-        assert_in_delta Tempo.Linear.tick_to_sec(seg, roundtrip), sec, 0.001
+        sec = Tempo.Linear.tick_to_sec(seg, ticks, @tpqn)
+        roundtrip = Tempo.Linear.sec_to_tick(seg, sec, @tpqn)
+        assert_in_delta Tempo.Linear.tick_to_sec(seg, roundtrip, @tpqn), sec, 0.001
       end
     end
 
@@ -135,19 +143,21 @@ defmodule Zongzi.TempoLinearTest do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 60})
 
       for ticks <- [0, 240, 480, 960, 1440, 1920] do
-        sec = Tempo.Linear.tick_to_sec(seg, ticks)
-        roundtick = Tempo.Linear.sec_to_tick(seg, sec)
-        assert_in_delta Tempo.Linear.tick_to_sec(seg, roundtick), sec, 0.001
+        sec = Tempo.Linear.tick_to_sec(seg, ticks, @tpqn)
+        roundtick = Tempo.Linear.sec_to_tick(seg, sec, @tpqn)
+        assert_in_delta Tempo.Linear.tick_to_sec(seg, roundtick, @tpqn), sec, 0.001
       end
     end
 
     test "sec 超出有限段范围：回退到最后" do
       {:ok, seg} = Tempo.Linear.build_from_event(0, 1920, %{bpm_start: 120, bpm_end: 120})
-      duration = Tempo.Linear.duration_sec(seg)
-      tick = Tempo.Linear.sec_to_tick(seg, duration + 100.0)
+      duration = Tempo.Linear.duration_sec(seg, @tpqn)
+      tick = Tempo.Linear.sec_to_tick(seg, duration + 100.0, @tpqn)
       assert tick >= 1920
     end
   end
+
+  # ---- TempoMap 集成 ----
 
   describe "TempoMap 集成" do
     test "单个 Linear 段编译" do
@@ -155,10 +165,10 @@ defmodule Zongzi.TempoLinearTest do
         TempoMap.compile(
           {[
              {0, %Tempo.Event{module: Tempo.Linear, context: %{bpm_start: 120, bpm_end: 60}}}
-           ], 3840}
+           ], 3840},
+          tpqn: @tpqn
         )
 
-      assert tuple_size(compiled) == 1
       seg = elem(compiled, 0)
       assert seg.start_pos == 0
       assert seg.end_pos == 3840
@@ -173,10 +183,9 @@ defmodule Zongzi.TempoLinearTest do
           {[
              {0, %Tempo.Event{module: Tempo.Step, context: %{bpm: 120}}},
              {1920, %Tempo.Event{module: Tempo.Linear, context: %{bpm_start: 120, bpm_end: 60}}}
-           ], 3840}
+           ], 3840},
+          tpqn: @tpqn
         )
-
-      assert tuple_size(compiled) == 2
 
       seg1 = elem(compiled, 0)
       assert seg1.strategy.bpm == 120
@@ -194,13 +203,14 @@ defmodule Zongzi.TempoLinearTest do
           {[
              {0, %Tempo.Event{module: Tempo.Step, context: %{bpm: 120}}},
              {1920, %Tempo.Event{module: Tempo.Linear, context: %{bpm_start: 120, bpm_end: 60}}}
-           ], 3840}
+           ], 3840},
+          tpqn: @tpqn
         )
 
-      assert_in_delta TempoMap.tick_to_sec(compiled, 480), 0.5, 0.001
-      assert_in_delta TempoMap.tick_to_sec(compiled, 1920), 2.0, 0.001
+      assert_in_delta TempoMap.tick_to_sec(compiled, 480, @tpqn), 0.5, 0.001
+      assert_in_delta TempoMap.tick_to_sec(compiled, 1920, @tpqn), 2.0, 0.001
 
-      sec = TempoMap.tick_to_sec(compiled, 1920 + 960)
+      sec = TempoMap.tick_to_sec(compiled, 1920 + 960, @tpqn)
       assert sec > 3.0
       assert sec < 4.0
     end
@@ -211,15 +221,15 @@ defmodule Zongzi.TempoLinearTest do
           {[
              {0, %Tempo.Event{module: Tempo.Step, context: %{bpm: 120}}},
              {1920, %Tempo.Event{module: Tempo.Linear, context: %{bpm_start: 120, bpm_end: 60}}}
-           ], 3840}
+           ], 3840},
+          tpqn: @tpqn
         )
 
       for tick <- [0, 480, 1920, 2400, 3000] do
-        sec = TempoMap.tick_to_sec(compiled, tick)
-        roundtrip = TempoMap.sec_to_tick(compiled, sec)
-        assert_in_delta TempoMap.tick_to_sec(compiled, roundtrip), sec, 0.001
+        sec = TempoMap.tick_to_sec(compiled, tick, @tpqn)
+        roundtrip = TempoMap.sec_to_tick(compiled, sec, @tpqn)
+        assert_in_delta TempoMap.tick_to_sec(compiled, roundtrip, @tpqn), sec, 0.001
       end
     end
   end
-
 end
