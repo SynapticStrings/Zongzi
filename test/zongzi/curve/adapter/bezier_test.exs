@@ -2,7 +2,7 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
   use ExUnit.Case, async: true
 
   alias Zongzi.Curve.{ControlPoint, Adapter}
-  alias Adapter.{Bezier, Inner}
+  alias Adapter.Bezier
 
   # helpers — new/1 returns {:ok, _}
 
@@ -38,9 +38,9 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
 
   test "empty curve produces all zeros" do
     bez = build([])
-    assert Inner.span(bez) == 0
-    assert Inner.control_points(bez) == []
-    got = decode(Inner.rasterize(bez, 0..4))
+    assert Bezier.span(bez) == 0
+    assert Bezier.control_points(bez) == []
+    got = decode(Bezier.rasterize(bez, 0..4))
     assert got == [0.0, 0.0, 0.0, 0.0, 0.0]
   end
 
@@ -48,8 +48,8 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
 
   test "single point produces constant value" do
     bez = build([pt(100, 3.5)])
-    assert Inner.span(bez) == 100
-    got = decode(Inner.rasterize(bez, 0..200))
+    assert Bezier.span(bez) == 100
+    got = decode(Bezier.rasterize(bez, 0..200))
     assert Enum.all?(got, &(&1 == 3.5))
   end
 
@@ -57,7 +57,7 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
 
   test "two points default handles produce smooth monotonic curve" do
     bez = build([pt(0, 0.0), pt(300, 1.0)])
-    got = decode(Inner.rasterize(bez, 0..300))
+    got = decode(Bezier.rasterize(bez, 0..300))
     assert hd(got) == 0.0
     assert List.last(got) == 1.0
 
@@ -70,7 +70,7 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
 
   test "custom right handle pulls curve up early" do
     bez = build([pt(0, 0.0, nil, h(100, 0.8)), pt(300, 1.0)])
-    got = decode(Inner.rasterize(bez, 0..300))
+    got = decode(Bezier.rasterize(bez, 0..300))
     mid = Enum.at(got, 150)
     # CP1=(100,0.8) lifts early section above linear midpoint 0.5
     assert mid > 0.6
@@ -79,7 +79,7 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
   test "custom left handle with negative value delta pulls curve down" do
     # left handle of second point with negative value offset pulls curve down
     bez = build([pt(0, 0.0), pt(300, 1.0, h(-100, -0.5), nil)])
-    got = decode(Inner.rasterize(bez, 0..300))
+    got = decode(Bezier.rasterize(bez, 0..300))
     mid = Enum.at(got, 150)
     # CP2=(200, 0.5) drags midpoint below 0.5
     assert mid < 0.45
@@ -92,7 +92,7 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
         pt(300, 1.0, h(-50, 0.1), nil)
       ])
 
-    got = decode(Inner.rasterize(bez, 0..300))
+    got = decode(Bezier.rasterize(bez, 0..300))
     assert hd(got) == 0.0
     assert List.last(got) == 1.0
     early = Enum.at(got, 60)
@@ -106,13 +106,13 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
 
   test "ticks before first point clamp to first value" do
     bez = build([pt(100, 2.0), pt(200, 4.0)])
-    got = decode(Inner.rasterize(bez, 0..99))
+    got = decode(Bezier.rasterize(bez, 0..99))
     assert Enum.all?(got, &(&1 == 2.0))
   end
 
   test "ticks after last point clamp to last value" do
     bez = build([pt(100, 2.0), pt(200, 4.0)])
-    got = decode(Inner.rasterize(bez, 201..300))
+    got = decode(Bezier.rasterize(bez, 201..300))
     assert Enum.all?(got, &(&1 == 4.0))
   end
 
@@ -120,8 +120,8 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
 
   test "three points make two segments with peak at middle" do
     bez = build([pt(0, 0.0), pt(100, 5.0), pt(200, 1.0)])
-    assert Inner.span(bez) == 200
-    got = decode(Inner.rasterize(bez, 0..200))
+    assert Bezier.span(bez) == 200
+    got = decode(Bezier.rasterize(bez, 0..200))
     assert hd(got) == 0.0
     mid = Enum.at(got, 100)
     assert_in_delta mid, 5.0, 0.01
@@ -132,8 +132,8 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
 
   test "rasterize is deterministic" do
     bez = build([pt(0, 0.0), pt(100, 3.0), pt(200, 1.0)])
-    a = Inner.rasterize(bez, 0..200)
-    b = Inner.rasterize(bez, 0..200)
+    a = Bezier.rasterize(bez, 0..200)
+    b = Bezier.rasterize(bez, 0..200)
     assert a == b
   end
 
@@ -141,7 +141,7 @@ defmodule Zongzi.Curve.Adapter.BezierTest do
 
   test "two points at same tick" do
     bez = build([pt(100, 2.0), pt(100, 3.0)])
-    got = decode(Inner.rasterize(bez, 0..200))
+    got = decode(Bezier.rasterize(bez, 0..200))
     assert Enum.at(got, 50) == 2.0
     assert Enum.at(got, 150) == 3.0
   end

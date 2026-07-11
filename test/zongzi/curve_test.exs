@@ -1,7 +1,7 @@
 defmodule Zongzi.CurveTest do
   use ExUnit.Case, async: true
 
-  alias Zongzi.Curve.{ControlPoint, Chunk, Adapter}
+  alias Zongzi.Curve.{ControlPoint, Chunk}
   alias Zongzi.Util.ID
   alias Zongzi.Curve.Adapter.CatmullRom
 
@@ -26,19 +26,19 @@ defmodule Zongzi.CurveTest do
       assert container.tension == 0.5
     end
 
-    test "Inner.control_points/1 返回控制点列表" do
+    test "control_points/1 返回控制点列表" do
       {:ok, cp0} = ControlPoint.new(tick: 0, value: 0.0)
       {:ok, cp1} = ControlPoint.new(tick: 10, value: 1.0)
       {:ok, cp2} = ControlPoint.new(tick: 20, value: 0.0)
       pts = [cp0, cp1, cp2]
 
       {:ok, container} = CatmullRom.new(points: pts, tension: 0.5)
-      assert Adapter.Inner.control_points(container) == pts
+      assert CatmullRom.control_points(container) == pts
     end
 
-    test "Inner.rasterize/2 空点列表返回全零" do
+    test "rasterize/2 空点列表返回全零" do
       {:ok, container} = CatmullRom.new(%{})
-      result = Adapter.Inner.rasterize(container, 0..90//10)
+      result = CatmullRom.rasterize(container, 0..90//10)
       assert byte_size(result) == 10 * 4
 
       assert result ==
@@ -48,10 +48,10 @@ defmodule Zongzi.CurveTest do
                  0.0::float-32-native>>
     end
 
-    test "Inner.rasterize/2 单点返回常量" do
+    test "rasterize/2 单点返回常量" do
       {:ok, cp} = ControlPoint.new(tick: 0, value: 0.75)
       {:ok, container} = CatmullRom.new(points: [cp])
-      result = Adapter.Inner.rasterize(container, 0..20//10)
+      result = CatmullRom.rasterize(container, 0..20//10)
       assert byte_size(result) == 3 * 4
       <<a::float-32-native, b::float-32-native, c::float-32-native>> = result
       assert_in_delta a, 0.75, 0.001
@@ -59,13 +59,13 @@ defmodule Zongzi.CurveTest do
       assert_in_delta c, 0.75, 0.001
     end
 
-    test "Inner.rasterize/2 线性段（tension=1.0 退化）" do
+    test "rasterize/2 线性段（tension=1.0 退化）" do
       {:ok, cp0} = ControlPoint.new(tick: 0, value: 0.0)
       {:ok, cp1} = ControlPoint.new(tick: 100, value: 1.0)
       pts = [cp0, cp1]
 
       {:ok, container} = CatmullRom.new(points: pts, tension: 1.0)
-      result = Adapter.Inner.rasterize(container, [0, 50])
+      result = CatmullRom.rasterize(container, [0, 50])
 
       assert byte_size(result) == 2 * 4
       <<s0::float-32-native, s1::float-32-native>> = result
@@ -73,14 +73,14 @@ defmodule Zongzi.CurveTest do
       assert_in_delta s1, 0.5, 0.01
     end
 
-    test "Inner.rasterize/2 标准 Catmull-Rom（tension=0.5）" do
+    test "rasterize/2 标准 Catmull-Rom（tension=0.5）" do
       {:ok, cp0} = ControlPoint.new(tick: 0, value: 0.0)
       {:ok, cp1} = ControlPoint.new(tick: 100, value: 1.0)
       {:ok, cp2} = ControlPoint.new(tick: 200, value: 0.0)
       pts = [cp0, cp1, cp2]
 
       {:ok, container} = CatmullRom.new(points: pts, tension: 0.5)
-      result = Adapter.Inner.rasterize(container, [0, 100])
+      result = CatmullRom.rasterize(container, [0, 100])
 
       assert byte_size(result) == 2 * 4
       <<s0::float-32-native, s1::float-32-native>> = result
@@ -88,38 +88,38 @@ defmodule Zongzi.CurveTest do
       assert s1 > 0.5
     end
 
-    test "Inner.rasterize/2 边界外 clamp 到首尾值" do
+    test "rasterize/2 边界外 clamp 到首尾值" do
       {:ok, cp0} = ControlPoint.new(tick: 50, value: 0.3)
       {:ok, cp1} = ControlPoint.new(tick: 150, value: 0.7)
       pts = [cp0, cp1]
 
       {:ok, container} = CatmullRom.new(points: pts)
-      result = Adapter.Inner.rasterize(container, [0, 100])
+      result = CatmullRom.rasterize(container, [0, 100])
 
       <<s0::float-32-native, s1::float-32-native>> = result
       assert_in_delta s0, 0.3, 0.01
       assert_in_delta s1, 0.5, 0.01
     end
 
-    test "Inner.span/1 返回最后一个控制点的 tick" do
+    test "span/1 返回最后一个控制点的 tick" do
       {:ok, cp0} = ControlPoint.new(tick: 0, value: 0.0)
       {:ok, cp1} = ControlPoint.new(tick: 100, value: 1.0)
       {:ok, cp2} = ControlPoint.new(tick: 200, value: 0.0)
       pts = [cp0, cp1, cp2]
 
       {:ok, container} = CatmullRom.new(points: pts, tension: 0.5)
-      assert Adapter.Inner.span(container) == 200
+      assert CatmullRom.span(container) == 200
     end
 
-    test "Inner.span/1 空曲线返回 0" do
+    test "span/1 空曲线返回 0" do
       {:ok, container} = CatmullRom.new(%{})
-      assert Adapter.Inner.span(container) == 0
+      assert CatmullRom.span(container) == 0
     end
 
-    test "Inner.span/1 单点返回该点 tick" do
+    test "span/1 单点返回该点 tick" do
       {:ok, cp} = ControlPoint.new(tick: 50, value: 0.5)
       {:ok, container} = CatmullRom.new(points: [cp])
-      assert Adapter.Inner.span(container) == 50
+      assert CatmullRom.span(container) == 50
     end
   end
 

@@ -50,12 +50,6 @@ defmodule Zongzi.Score.Key do
     def to_frequency(key, reference)
   end
 
-  # ---- Scope ----
-
-  @scope "key"
-
-  def scope, do: @scope
-
   # ---- Facade API ----
 
   def new(attrs, module), do: module.new(attrs)
