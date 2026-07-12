@@ -2,7 +2,8 @@ defmodule Zongzi.Score.Note do
   @moduledoc """
   有关音符的领域模型。
   """
-  alias Zongzi.{Util.ID, Util.Model, Timeline.Tick, Score.Key}
+  alias Zongzi.{Util.ID, Util.Model, Score.Key}
+  alias Zongzi.Timeline.{Tick, SeqID}
 
   # 切片操作逻辑
   # 默认交给 Slicer 根据休止时间自动判断
@@ -25,6 +26,7 @@ defmodule Zongzi.Score.Note do
       :duration_tick,
       :key,
       :lyric,
+      seq_id: nil,
       slice_flag: :auto,
       annotation: nil,
       metadata: %{}
@@ -38,10 +40,33 @@ defmodule Zongzi.Score.Note do
           duration_tick: Tick.t(),
           key: Key.t(),
           lyric: String.t() | nil,
+          seq_id: SeqID.t() | nil,
           slice_flag: slice_flag(),
           annotation: String.t() | nil,
           metadata: %{}
         }
+
+  # ---- 构造函数 ----
+
+  @doc """
+  创建新音符。
+
+  `seq_id` 默认为 nil——由 `Timeline.insert_note/2` 分配。
+  反序列化时可以显式传入已有的 `:seq_id`。
+  """
+  def new(attrs) do
+    with {:ok, normalized} <- normalize_attrs(attrs, @keys) do
+      case Map.fetch(normalized, :id) do
+        :error -> {:error, {:missing_id, "Note_"}}
+        {:ok, _id} ->
+          # seq_id 默认 nil（由 Timeline.insert_note 分配）。
+          # 反序列化时 attrs 里显式传 seq_id: <int> 即可。
+          normalized
+          |> then(&struct!(%__MODULE__{}, &1))
+          |> validate()
+      end
+    end
+  end
 
   # ---- 领域相关的验证函数 ----
 

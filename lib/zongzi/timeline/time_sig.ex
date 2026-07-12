@@ -5,15 +5,26 @@ defmodule Zongzi.Timeline.TimeSig do
 
   alias Zongzi.Timeline.Record
 
+  # 标准拍子
   @type standard ::
           {numerator :: pos_integer(), denominator :: pos_integer()}
           | {:standard, numerator :: pos_integer(), denominator :: pos_integer()}
+
+  # 复拍子
   @type compound :: {:compound, groupings :: [pos_integer()], denominator :: pos_integer()}
+
+  # 散拍子
   @type free :: :san
+
+  @typedoc "拍编号。"
   @type bar :: pos_integer()
+
+  @typedoc "拍号。"
   @type t :: standard() | compound() | free()
+
   @typedoc "节拍变化事件"
   @type time_sig_event :: {bar(), t()}
+
   @type time_sig_events :: [time_sig_event()] | {[time_sig_event()], Record.end_position()}
 
   @doc "获取一个完整小节的 Tick 长度"

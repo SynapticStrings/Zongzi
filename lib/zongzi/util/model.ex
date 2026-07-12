@@ -53,7 +53,7 @@ defmodule Zongzi.Util.Model do
 
       @impl true
       def validate(model), do: {:ok, model}
-      defoverridable validate: 1
+      defoverridable new: 1, update: 2, validate: 1
     end
   end
 end

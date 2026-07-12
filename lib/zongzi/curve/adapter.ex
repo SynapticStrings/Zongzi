@@ -8,11 +8,12 @@ defmodule Zongzi.Curve.Adapter do
         # 一般都存在状态
         use Zongzi.Curve.Adapter, keys: ...
 
-        defimpl Inner, for: __MODULE__ do
-          def control_points(foo), do: ...
-          def span(foo), do: ...
-          def rasterize(foo, tick_seq), do: ...
-        end
+        @impl Zongzi.Curve.Adapter
+        def control_points(foo), do: ...
+        @impl Zongzi.Curve.Adapter
+        def span(foo), do: ...
+        @impl Zongzi.Curve.Adapter
+        def rasterize(foo, tick_seq), do: ...
       end
 
   ## 可编辑的曲线
@@ -25,7 +26,7 @@ defmodule Zongzi.Curve.Adapter do
 
   这里主要是用于参数的曲线在根据 Tempo 得到的 `tick_seq` 的采样点作为栅格化的单位/依据。
 
-  所以这也是考虑 `Zongzi.Curve.Adapter.Inner.span/1` 协议的一个原因了。
+  所以这也是考虑 `Zongzi.Curve.Adapter.span/1` 回调的一个原因了。
 
   同时也要考虑只要一部分曲线拿来序列化的情况。
 
@@ -37,22 +38,15 @@ defmodule Zongzi.Curve.Adapter do
 
   # ---- 如果这里需要一些业务函数的话，放在这 ----
 
-  defprotocol Inner do
-    @doc "返回容器内的控制点列表，单位是 tick 。"
-    @spec control_points(term()) :: [ControlPoint.t()]
-    def control_points(container)
+  @doc "返回容器内的控制点列表，单位是 tick 。"
+  @callback control_points(container :: struct()) :: [ControlPoint.t()]
 
-    @doc "返回曲线的时间跨度（最后一个控制点的 tick 偏移）。空曲线返回 0。"
-    @spec span(term()) :: non_neg_integer()
-    def span(container)
+  @doc "返回曲线的时间跨度（最后一个控制点的 tick 偏移）。空曲线返回 0。"
+  @callback span(container :: struct()) :: non_neg_integer()
 
-    @doc "按给定 tick 序列采样，返回 float-32-native 二进制。tick_seq 可以是 list 或 Range。"
-    # Erlang float-32-native is used in bit syntax to read or write 32-bit (single-precision)
-    # IEEE 754 floating-point numbers using the CPU's native endianness.
-    @spec rasterize(term(), Enumerable.t(non_neg_integer())) :: binary()
-    def rasterize(container, tick_seq)
-    # 后续 NIF 替换
-  end
+  @doc "按给定 tick 序列采样，返回 float-32-native 二进制。tick_seq 可以是 list 或 Range。"
+  @callback rasterize(container :: struct(), tick_seq :: Enumerable.t()) :: binary()
+  # 后续 NIF 替换
 
   defmacro __using__(opts) do
     # 顺应 Zongzi.Util.Object 模块
@@ -60,19 +54,8 @@ defmodule Zongzi.Curve.Adapter do
 
     quote do
       use Zongzi.Util.Object, keys: unquote(keys)
-      # @behaviour Zongzi.Curve.Adapter
-      alias Zongzi.Curve.{Adapter.Inner, ControlPoint}
-      @after_compile Zongzi.Curve.Adapter
+      @behaviour Zongzi.Curve.Adapter
+      alias Zongzi.Curve.ControlPoint
     end
-  end
-
-  def __after_compile__(env, _bytecode) do
-    Protocol.assert_impl!(Zongzi.Curve.Adapter.Inner, env.module)
-  rescue
-    ArgumentError ->
-      IO.warn(
-        "#{inspect(env.module)} uses Curve.Adapter but not implement Inner protocol",
-        Macro.Env.stacktrace(env)
-      )
   end
 end
