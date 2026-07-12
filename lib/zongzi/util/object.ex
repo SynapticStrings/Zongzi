@@ -14,7 +14,7 @@ defmodule Zongzi.Util.Object do
   @optional_callbacks [validate: 1]
 
   defmacro __using__(opts) do
-    # 和 Domain 一样，这里一般是代码编写除了问题，可以 raise
+    # 和 Domain 一样，这里一般是代码编写出了问题，可以 raise
     keys = Keyword.fetch!(opts, :keys)
 
     quote do

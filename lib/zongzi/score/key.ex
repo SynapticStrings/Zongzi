@@ -21,8 +21,6 @@ defmodule Zongzi.Score.Key do
   # 新建
   @callback new(any()) :: {:ok, key_struct()} | {:error, term()}
 
-  # ---- 创建 ----
-
   # 当前阶段暂时保留，不需要具体实现，MIDI 同理
   @callback from_score(score_data :: term(), type :: atom(), ctx :: term()) ::
               {:ok, key_struct()} | {:error, term()}
@@ -30,8 +28,7 @@ defmodule Zongzi.Score.Key do
   @callback from_midi(midi_note :: number(), ctx :: term()) ::
               {:ok, key_struct()} | {:error, term()}
 
-  # ---- 去向 ----
-
+  # 去向
   defprotocol Inner do
     @moduledoc "部分去向的操作集合"
 
@@ -68,6 +65,14 @@ defmodule Zongzi.Score.Key do
     quote do
       @behaviour Zongzi.Score.Key
       alias Zongzi.Score.Key.Inner
+
+      @impl true
+      def from_score(_score_data, _type, _ctx), do: {:error, :not_implemented}
+
+      @impl true
+      def from_midi(_midi, _ctx), do: {:error, :not_implemented}
+
+      defoverridable from_score: 3, from_midi: 2
     end
   end
 end

@@ -1,6 +1,6 @@
 defmodule Zongzi.Score.Note do
   @moduledoc """
-  有关音符的领域模型。
+  有关音符的领域模型以及结构体。
   """
   alias Zongzi.{Util.ID, Util.Model, Score.Key}
   alias Zongzi.Score.Tick
@@ -73,6 +73,13 @@ defmodule Zongzi.Score.Note do
 
   # ---- 领域相关的验证函数 ----
 
+  @doc """
+  有以下情况不合法：
+
+  * 音符的开始时刻在 0 之前
+  * 音符的开始时刻在结束时刻之前
+  * 歌词是 nil 或字符串外的其他类型
+  """
   @impl true
   def validate(%__MODULE__{start_tick: start_tick}) when start_tick < 0,
     do: {:error, {:invalid_negative_tick, start_tick}}
@@ -86,7 +93,6 @@ defmodule Zongzi.Score.Note do
   def validate(model), do: {:ok, model}
 
   # ---- 业务函数 ----
-  # 业务函数返回 {:ok, result} 或 {:error, reason}
 
   @doc "拖拽音符到新的高度与 start_tick"
   @spec drag_note(
@@ -118,6 +124,7 @@ defmodule Zongzi.Score.Note do
     update(note, lyric: new_lyric)
   end
 
+  # 标注是 UI 的标注，引擎以及插件不会读取
   @doc "修改标注"
   @spec update_annotation(t(), String.t() | nil) :: {:ok, t()} | {:error, term()}
   def update_annotation(note, new_annotation) do
@@ -146,7 +153,8 @@ defmodule Zongzi.Score.Note do
   def get_metadata(note), do: {:ok, note.metadata}
 
   # 使用 Map.fetch/2 区分是 nil 还是 not exist
-  @spec get_metadata(t(), binary()) :: {:ok, term()} | {:error, {:key_not_found, term()}}
+  @spec get_metadata(t(), key :: binary()) ::
+          {:ok, term()} | {:error, {:key_not_found, key :: binary()}}
   def get_metadata(note, key) when is_binary(key) do
     case Map.fetch(note.metadata, key) do
       {:ok, value} -> {:ok, value}
@@ -212,6 +220,8 @@ defmodule Zongzi.Score.Note do
   ## 选项
 
   - `:gap_tolerance` — 允许的音符间最大间隙（tick），默认 0（必须相邻或重叠）
+  - `:lyric_merger` — 可插拔的歌词拼接函数（fn/2 -> ok or error），默认两者均有值时直接连接，标注取第一个非 nil 值
+  - `:annotation_merger` — 可插拔的注释合并函数（fn/2 ok or error）
 
   ## 行为
 
@@ -219,13 +229,30 @@ defmodule Zongzi.Score.Note do
   - 必须重叠，或间隙 ≤ `gap_tolerance`
   - 返回 `{:ok, merged_note}`，生成新 ID
   - 合并后 `slice_flag` 设为 `:auto`
-  - 歌词拼接（两者均有值时直接连接），标注取第一个非 nil 值
   """
   @spec merge(t(), t(), keyword()) :: {:ok, t()} | {:error, term()}
   def merge(note1, note2, opts \\ []) do
     gap_tolerance = Keyword.get(opts, :gap_tolerance, 0)
     note1_end = note1.start_tick + note1.duration_tick
     note2_end = note2.start_tick + note2.duration_tick
+
+    lyric_merger =
+      Keyword.get(opts, :lyric_merger, fn note1, note2 ->
+        {:ok,
+         cond do
+           is_nil(note1.lyric) and is_nil(note2.lyric) -> nil
+           is_nil(note1.lyric) -> note2.lyric
+           is_nil(note2.lyric) -> note1.lyric
+           note1.lyric == note2.lyric -> note1.lyric
+           # 考虑后者为连续的什么 -> 那就使用前者
+           true -> note1.lyric <> note2.lyric
+         end}
+      end)
+
+    annotation_merger =
+      Keyword.get(opts, :annotation_merger, fn note1, note2 ->
+        {:ok, note1.annotation || note2.annotation}
+      end)
 
     cond do
       Key.to_midi(note1.key) != Key.to_midi(note2.key) ->
@@ -236,39 +263,29 @@ defmodule Zongzi.Score.Note do
         {:error, {:gap_too_large, note1_end, note2.start_tick, gap_tolerance}}
 
       true ->
-        do_merge(note1, note1_end, note2, note2_end)
+        do_merge(note1, note1_end, note2, note2_end, lyric_merger, annotation_merger)
     end
   end
 
   # ---- 一些工具函数 ----
 
   # 执行合并
-  defp do_merge(note1, note1_end, note2, note2_end) do
+  defp do_merge(note1, note1_end, note2, note2_end, lyric_merger, annotation_merger) do
     start_tick = min(note1.start_tick, note2.start_tick)
     end_tick = max(note1_end, note2_end)
 
-    lyric =
-      cond do
-        is_nil(note1.lyric) and is_nil(note2.lyric) -> nil
-        is_nil(note1.lyric) -> note2.lyric
-        is_nil(note2.lyric) -> note1.lyric
-        note1.lyric == note2.lyric -> note1.lyric
-        # 考虑后者为连续的什么 -> 那就使用前者
-        true -> note1.lyric <> note2.lyric
-      end
-
-    # 这里可能需要讨论下
-    annotation = note1.annotation || note2.annotation
-
-    %{
-      start_tick: start_tick,
-      duration_tick: end_tick - start_tick,
-      key: note1.key,
-      lyric: lyric,
-      slice_flag: :auto,
-      annotation: annotation,
-      metadata: Map.merge(note1.metadata, note2.metadata)
-    }
-    |> new()
+    with {:ok, lyric} <- lyric_merger.(note1, note2),
+         {:ok, annotation} <- annotation_merger.(note1, note2) do
+      %{
+        start_tick: start_tick,
+        duration_tick: end_tick - start_tick,
+        key: note1.key,
+        lyric: lyric,
+        slice_flag: :auto,
+        annotation: annotation,
+        metadata: Map.merge(note1.metadata, note2.metadata)
+      }
+      |> new()
+    end
   end
 end

@@ -1,8 +1,8 @@
 defmodule Zongzi.Score.Grid do
   @moduledoc """
-  时间线网格与量化（吸附）工具。
+  时间线网格与量化（吸附）工具，负责将任意给定的游离 Tick 吸附到最近的网格线上。
 
-  负责将任意给定的游离 Tick 吸附到最近的网格线上。
+  本模块仅用于说明，因为一般处理相关逻辑的模块归编辑器/UI负责。
   """
 
   alias Zongzi.Score.Tick

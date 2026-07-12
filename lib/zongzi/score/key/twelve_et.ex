@@ -15,9 +15,6 @@ defmodule Zongzi.Score.Key.TwelveET do
   @impl true
   def from_midi(midi, _ctx), do: new(midi)
 
-  @impl true
-  def from_score(_score_data, _type, _ctx), do: {:error, :not_implemented}
-
   # ---- Inner 协议实现 ----
 
   defimpl Inner, for: __MODULE__ do

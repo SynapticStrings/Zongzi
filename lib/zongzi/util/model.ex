@@ -13,12 +13,18 @@ defmodule Zongzi.Util.Model do
 
   `new/1` 不再自动生成 ID。调用方使用 `Zongzi.Util.ID.generate_id/1` 生成后传入。
   这保证 Domain 层不依赖随机数。
+
+  ## 业务函数的编写（推荐）
+
+  返回 `{:ok, result}` 或 `{:error, reason}` 。
   """
 
+  @doc "检查领域模型是否合法。"
   @callback validate(model :: struct()) :: {:ok, struct()} | {:error, term()}
   @optional_callbacks [validate: 1]
 
   defmacro __using__(opts) do
+    # 开发错误就直接 raise 吧。
     keys = Keyword.fetch!(opts, :keys)
     id_prefix = Keyword.get(opts, :id_prefix)
 
