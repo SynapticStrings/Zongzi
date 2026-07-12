@@ -2,7 +2,8 @@ defmodule Zongzi.Score.Note do
   @moduledoc """
   有关音符的领域模型。
   """
-  alias Zongzi.{Util.ID, Util.Model, Timeline.Tick, Score.Key}
+  alias Zongzi.{Util.ID, Util.Model, Score.Key}
+  alias Zongzi.Timeline.{Tick, SeqID}
 
   # 切片操作逻辑
   # 默认交给 Slicer 根据休止时间自动判断
@@ -25,6 +26,7 @@ defmodule Zongzi.Score.Note do
       :duration_tick,
       :key,
       :lyric,
+      seq_id: nil,
       slice_flag: :auto,
       annotation: nil,
       metadata: %{}
@@ -38,10 +40,39 @@ defmodule Zongzi.Score.Note do
           duration_tick: Tick.t(),
           key: Key.t(),
           lyric: String.t() | nil,
+          seq_id: SeqID.t() | nil,
           slice_flag: slice_flag(),
           annotation: String.t() | nil,
           metadata: %{}
         }
+
+  # ---- 构造函数 ----
+
+  @doc """
+  创建新音符。
+
+  如果 `attrs` 没有提供 `:seq_id`，自动生成一个新的 SeqID。
+  反序列化时可以显式传入已有的 `:seq_id`。
+
+  与 Model 默认的 `new/1` 的区别：seq_id 自动生成，不需要调用方显式传入。
+  """
+  def new(attrs) do
+    with {:ok, normalized} <- normalize_attrs(attrs, @keys) do
+      case Map.fetch(normalized, :id) do
+        :error -> {:error, {:missing_id, "Note_"}}
+        {:ok, id} ->
+          seq_id = case normalized do
+            %{seq_id: sid} when not is_nil(sid) -> sid
+            _ -> SeqID.generate()
+          end
+          normalized
+          |> Map.put(:id, id)
+          |> Map.put(:seq_id, seq_id)
+          |> then(&struct!(%__MODULE__{}, &1))
+          |> validate()
+      end
+    end
+  end
 
   # ---- 领域相关的验证函数 ----
 

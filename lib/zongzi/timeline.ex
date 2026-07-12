@@ -1,16 +1,234 @@
 defmodule Zongzi.Timeline do
   @moduledoc """
-  关于编辑器的时间系统。
+  轨道的序列真相（source of truth for note ordering）。
 
-  主要包括三类时间系统：
+  独立于 Note 的生命周期——Note 被 split/merge/drag 后，
+  Timeline 维护的 seq_id 序列始终反映最新的全序关系。
 
-  * 一个是面向用户的时间系统，纯粹描述音乐结构
-  * 一个是编辑器内部，基于 Tick
-  * 还有一个是面向引擎/下游的时间，也就是物理时间
+  ## 为什么需要 Timeline
+
+  Note 的 `start_tick` 只表示音符在时间轴上的位置，不是它在序列中的位置。
+  两个音符可以 `start_tick` 相同（复音），但在 Timeline 上有明确的先后。
+
+  Intervention 锚定的不是绝对时间，而是序列中的邻接关系。
+  当音符被拖拽、切分、合并时，只要邻接的 seq_id 对得上 2/3，
+  intervention 就能存活。
+
+  ## 数据字段
+
+  - `note_order` — seq_id 的有序链表，定义轨道的全序
+  - `seq_map` — seq_id → note_id 的反向查找
+  - `tombstones` — 已删除的 seq_id（被 merge 或 split 替换），
+    墓碑保留在链表中以维护邻接稳定性
+
+  ## 与 Intervention 的关系
+
+  Intervention 用 `{prev_seq_id, current_seq_id, next_seq_id}` 三元组锚定。
+  当 Timeline 变更后，通过 `adjacent/2` 查询三元组的存活状态，
+  用 2-of-3 exact match 决定 resolve 还是 conflict。
+
+  机制细节：`Anchor.NoteTriplet`（待实现）。
   """
-
   @type tick :: Zongzi.Timeline.Tick.t()
 
   # 物理时间
   @type physical_time :: float()
+
+  alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
+
+  @type t :: %__MODULE__{
+          track_id: ID.t(),
+          note_order: [SeqID.t()],
+          seq_map: %{SeqID.t() => ID.t()},
+          tombstones: MapSet.t(SeqID.t())
+        }
+
+  defstruct [:track_id, note_order: [], seq_map: %{}, tombstones: MapSet.new()]
+
+  @doc "创建空 Timeline。"
+  def new(track_id), do: {:ok, %__MODULE__{track_id: track_id}}
+
+  # ---- 基本操作 ----
+
+  @doc """
+  将音符追加到 Timeline 末尾。
+
+  如果 Note 没有 seq_id（nil），自动生成一个新的。
+  如果已有 seq_id（反序列化），直接使用。
+  """
+  @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()}
+  def insert_note(%__MODULE__{} = tl, %Note{} = note) do
+    seq_id = if note.seq_id, do: note.seq_id, else: SeqID.generate()
+    note = %{note | seq_id: seq_id}
+
+    tl = %__MODULE__{
+      tl
+      | note_order: tl.note_order ++ [seq_id],
+        seq_map: Map.put(tl.seq_map, seq_id, note.id)
+    }
+
+    {:ok, tl, note}
+  end
+
+  @doc """
+  在指定 tick 处切开 seq_id 对应的音符。
+
+  左半保留原 seq_id（seq_map 不变），右半获得新 seq_id。
+  新 seq_id 插入 note_order 中原 seq_id 之后。
+  """
+  @spec split_note(t(), SeqID.t(), non_neg_integer()) ::
+          {:ok, t()} | {:error, term()}
+  def split_note(%__MODULE__{} = tl, seq_id, _split_tick) do
+    case note_order_index(tl, seq_id) do
+      {:ok, idx} ->
+        new_seq = SeqID.generate()
+        {left, right} = Enum.split(tl.note_order, idx + 1)
+
+        tl = %__MODULE__{
+          tl
+          | note_order: left ++ [new_seq | right],
+            seq_map: Map.put(tl.seq_map, new_seq, tl.seq_map[seq_id])
+        }
+
+        {:ok, tl, seq_id, new_seq}
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  @doc """
+  拖拽 seq_id 到 note_order 中的新位置。
+
+  seq_id 本身不变——只是它在链表中的位置移动。
+  `new_index` 是移除后重新插入的目标索引（0-based）。
+  如果超出范围，插入末尾。
+
+  ## 语义
+
+  - seq_id 是墓碑 → 拒绝操作
+  - msg_id 不在 Timeline → {:error, :not_found}
+  """
+  @spec drag_note(t(), SeqID.t(), non_neg_integer()) ::
+          {:ok, t()} | {:error, term()}
+  def drag_note(%__MODULE__{} = tl, seq_id, new_index)
+      when is_integer(new_index) and new_index >= 0 do
+    if MapSet.member?(tl.tombstones, seq_id) do
+      {:error, {:is_tombstone, seq_id}}
+    else
+      case note_order_index(tl, seq_id) do
+        {:ok, idx} ->
+          without = List.delete_at(tl.note_order, idx)
+          new_index = min(new_index, length(without))
+          {left, right} = Enum.split(without, new_index)
+          note_order = left ++ [seq_id | right]
+
+          {:ok, %__MODULE__{tl | note_order: note_order}}
+
+        {:error, _} = err ->
+          err
+      end
+    end
+  end
+
+  @doc """
+  合并两个相邻的 seq_id。
+
+  seq_id_1 保留（更新 seq_map 指向新 note_id），seq_id_2 变成墓碑。
+  seq_id_2 仍留在 note_order 中以维持邻接稳定性。
+  """
+  @spec merge_notes(t(), SeqID.t(), SeqID.t(), ID.t()) ::
+          {:ok, t()} | {:error, term()}
+  def merge_notes(%__MODULE__{} = tl, seq_id_1, seq_id_2, merged_note_id) do
+    with {:ok, _idx1} <- note_order_index(tl, seq_id_1),
+         {:ok, _idx2} <- note_order_index(tl, seq_id_2),
+         :ok <- assert_not_tombstone(tl, seq_id_1),
+         :ok <- assert_not_tombstone(tl, seq_id_2) do
+      tl = %__MODULE__{
+        tl
+        | seq_map: tl.seq_map |> Map.put(seq_id_1, merged_note_id),
+          tombstones: tl.tombstones |> MapSet.put(seq_id_2)
+      }
+
+      {:ok, tl}
+    end
+  end
+
+  # ---- 查询 ----
+
+  @doc """
+  查询 seq_id 在 Timeline 中的邻接关系。
+
+  返回 `{:ok, {prev_seq, current_seq, next_seq}}`。
+  prev/next 可能为 nil（首/尾）。
+
+  如果 seq_id 是墓碑：返回 `{:tombstone, seq_id}`。
+  如果 seq_id 不在 Timeline：返回 `{:error, :not_found}`。
+  """
+  @spec adjacent(t(), SeqID.t()) ::
+          {:ok, {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}}
+          | {:tombstone, SeqID.t()}
+          | {:error, :not_found}
+  def adjacent(%__MODULE__{} = tl, seq_id) do
+    cond do
+      MapSet.member?(tl.tombstones, seq_id) ->
+        {:tombstone, seq_id}
+
+      true ->
+        case note_order_index(tl, seq_id) do
+          {:ok, idx} ->
+            order = tl.note_order
+            prev = if idx > 0, do: Enum.at(order, idx - 1)
+            current = Enum.at(order, idx)
+            next = Enum.at(order, idx + 1)
+            {:ok, {prev, current, next}}
+
+          {:error, _} ->
+            {:error, :not_found}
+        end
+    end
+  end
+
+  @doc """
+  检查 seq_id 对应的三元组是否满足 2-of-3 匹配。
+
+  用于 Intervention rebase——旧三元组 vs 新三元组。
+  返回 `{:ok, match_count}` 或 `{:tombstone, ...}`。
+  """
+  @spec try_match(t(), {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}) ::
+          {:ok, non_neg_integer()} | {:tombstone, SeqID.t()} | {:error, :not_found}
+  def try_match(%__MODULE__{} = tl, {old_prev, old_current, old_next}) do
+    case adjacent(tl, old_current) do
+      {:ok, {new_prev, _, new_next}} ->
+        matches =
+          (old_prev == new_prev && 1 || 0) +
+            1 +
+            (old_next == new_next && 1 || 0)
+
+        {:ok, matches}
+
+      {:tombstone, _} = tombstone ->
+        tombstone
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  # ---- helpers ----
+
+  defp note_order_index(%__MODULE__{note_order: order}, seq_id) do
+    case Enum.find_index(order, &(&1 == seq_id)) do
+      nil -> {:error, {:not_found, seq_id}}
+      idx -> {:ok, idx}
+    end
+  end
+
+  defp assert_not_tombstone(%__MODULE__{tombstones: ts}, seq_id) do
+    if MapSet.member?(ts, seq_id) do
+      {:error, {:is_tombstone, seq_id}}
+    else
+      :ok
+    end
+  end
 end
