@@ -154,7 +154,7 @@ defmodule Zongzi.Score.Tempo do
   # defmodule Curve, do: nil
   # 留个 stub 在这里
   # 下游应用最好自己实现，用 NIF integrate 成小 step/linear 甚至是自己搞都可以
-  #（不要用 zongzi 内置的 Curve 工具，因为其依赖这里的时间线机制）
+  # （不要用 zongzi 内置的 Curve 工具，因为其依赖这里的时间线机制）
 
   # ---- 一些工具函数 ----
 

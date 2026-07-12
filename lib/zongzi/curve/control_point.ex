@@ -1,4 +1,8 @@
 defmodule Zongzi.Curve.ControlPoint do
+  @moduledoc """
+  基于刻的控制点。
+  """
+
   # --------------------------------------------------
   # tick: non_neg_integer  (Chunk.start_tick  + offset)
   # value: float           (parameter value, e.g. cents, ratio)
@@ -10,6 +14,7 @@ defmodule Zongzi.Curve.ControlPoint do
   # CatmullRom / Linear / Step ignore these handles.
   # --------------------------------------------------
 
+  @typedoc "控制手柄"
   @type handle :: %{tick: integer(), value: float()} | nil
 
   @type t :: %__MODULE__{

@@ -21,13 +21,15 @@ defmodule Zongzi.HelpersTest do
 
       assert normalize_attrs([1, 2], [:foo]) == {:error, {:invalid_attrs, [1, 2]}}
 
-      assert normalize_attrs([{:foo, 1, 2}, bar: nil], [:foo]) == {:error, {:invalid_attrs, [{:foo, 1, 2}, bar: nil]}}
+      assert normalize_attrs([{:foo, 1, 2}, bar: nil], [:foo]) ==
+               {:error, {:invalid_attrs, [{:foo, 1, 2}, bar: nil]}}
     end
 
     test "键值声明仅允许元素是原子或元组的列表存在" do
       assert normalize_attrs([foo: 1, bar: 2], nil) == {:error, {:invalid_fields, nil}}
 
-      assert normalize_attrs([foo: 1, bar: 2], [:foo, "nil"]) == {:error, {:invalid_field_spec, "nil"}}
+      assert normalize_attrs([foo: 1, bar: 2], [:foo, "nil"]) ==
+               {:error, {:invalid_field_spec, "nil"}}
     end
   end
 end

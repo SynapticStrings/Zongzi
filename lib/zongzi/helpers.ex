@@ -1,8 +1,6 @@
 defmodule Zongzi.Helpers do
   @moduledoc "一些帮助函数。"
 
-  @spec normalize_attrs(any(), any()) :: {:ok, map()} | {:error, term()}
-
   @doc """
   规整属性，仅保留 `fields` 中声明的键。
 
@@ -28,6 +26,7 @@ defmodule Zongzi.Helpers do
       iex> Zongzi.Helpers.normalize_attrs(%{foo: "a"}, 1)
       {:error, {:invalid_fields, 1}}
   """
+  @spec normalize_attrs(any(), any()) :: {:ok, map()} | {:error, term()}
   def normalize_attrs(attrs, fields) do
     with {:ok, allowed_set} <- build_allowed_set(fields),
          {:ok, pairs} <- to_pairs(attrs) do
