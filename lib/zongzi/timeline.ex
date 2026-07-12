@@ -196,22 +196,21 @@ defmodule Zongzi.Timeline do
   end
 
   @doc """
-  删除 seq_id（不经过墓碑，直接从 note_order 移除）。
+  删除 seq_id——将其标记为墓碑，保留在 note_order 中维持邻接稳定性。
 
-  与 `merge_notes/4` 不同：merge 保留墓碑以维护邻接稳定性，
-  delete 彻底移除 seq_id——锚在其上的 intervention 变为 orphan，
-  由 `nearest_active/3` 沿方向找最近活跃邻居重新锚定。
+  与 `merge_notes/4` 类似：墓碑留在 note_order，
+  锚在其上的 intervention 收到 `{:tombstone, seq_id}` → `:merged_away`。
 
-  对应"直接删除音符"的编辑操作（非 merge）。
+  不再被任何 intervention 引用的墓碑可通过 `gc/2` 回收。
   """
   @spec delete_note(t(), SeqID.t()) :: {:ok, t()} | {:error, term()}
   def delete_note(%__MODULE__{} = tl, seq_id) do
-    with {:ok, idx} <- note_order_index(tl, seq_id),
+    with {:ok, _idx} <- note_order_index(tl, seq_id),
          :ok <- assert_not_tombstone(tl, seq_id) do
       tl = %__MODULE__{
         tl
-        | note_order: List.delete_at(tl.note_order, idx),
-          seq_map: Map.delete(tl.seq_map, seq_id)
+        | seq_map: Map.delete(tl.seq_map, seq_id),
+          tombstones: MapSet.put(tl.tombstones, seq_id)
       }
 
       {:ok, tl}
@@ -312,6 +311,45 @@ defmodule Zongzi.Timeline do
         {:error, :no_active_neighbor}
     end
   end
+
+  @doc """
+  回收无引用的墓碑。
+
+  遍历所有 intervention 的锚点三元组，收集被引用的 seq_id。
+  任何不在引用集合中的墓碑从 note_order 和 tombstones 集中移除。
+
+  应该在 rebase_all 之后调用——此时 conflict 已上浮，
+  存活和 rebase 的 intervention 是当前有效引用集。
+  """
+  @spec gc(t(), [Zongzi.Intervention.t()]) :: t()
+  def gc(%__MODULE__{} = tl, interventions) do
+    live_refs =
+      interventions
+      |> Enum.flat_map(fn int ->
+        {p, c, n} = int.anchor
+        [p, c, n] |> Enum.reject(&is_nil/1)
+      end)
+      |> MapSet.new()
+
+    unreachable =
+      tl.tombstones
+      |> Enum.filter(fn seq_id -> not MapSet.member?(live_refs, seq_id) end)
+
+    %__MODULE__{
+      tl
+      | note_order: Enum.reject(tl.note_order, &(&1 in unreachable)),
+        tombstones: Enum.reduce(unreachable, tl.tombstones, &MapSet.delete(&2, &1))
+    }
+  end
+
+  @doc """
+  检查 seq_id 是否仍在 seq_map 中。
+
+  merge 保留 seq_map 条目（指向合并后 note_id），delete 移除。
+  rebase 用此区分 merge 墓碑（→ conflict）和 delete 墓碑（→ push）。
+  """
+  @spec seq_map_has?(t(), SeqID.t()) :: boolean()
+  def seq_map_has?(%__MODULE__{seq_map: sm}, seq_id), do: Map.has_key?(sm, seq_id)
 
   # ---- helpers ----
 

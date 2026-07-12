@@ -138,27 +138,78 @@ defmodule Zongzi.Intervention.SpikeTest do
   # ============================================================
 
   @tag :spike
-  test "delete 中间音符 → orphan push 到活跃邻居" do
-    {:ok, tl, [a, b, c, d]} = build_4()
+  test "delete 中间音符 → push 到活跃邻居" do
+    {:ok, tl, [a, b, c, _d]} = build_4()
     int = make_timing_int({a, b, c}, %{0 => 0.0})
 
-    # delete b → note_order: [a, c, d]
+    # delete b → 墓碑，仍在 note_order
     {:ok, tl} = Timeline.delete_note(tl, b)
-
-    # b 不在 Timeline → try_match 返回 :not_found
-    # nearest_active(b, :next) 扫描 [a, c, d]，b 不在其中 → 找不到 → :no_active_neighbor
-    # 最终 :adjacency_lost（因为没有活跃邻居在 b 所在方向能找到 b 的邻居）
-    # b 不在 note_order 中，所以 nearest_active 用 b 找 index 失败 → :no_active_neighbor
-    assert NoteTriplet.rebase(int, tl) == {:conflict, :adjacency_lost}
+    # tombstone → nearest_active(b, :next) 跳墓碑找到 c
+    # {:push, c, updated}，锚更新为 {a, c, d}（如果 d 存在）
+    assert {:push, c, rebased} = NoteTriplet.rebase(int, tl)
+    assert rebased.anchor == {a, c, _d}
   end
 
   @tag :spike
-  test "delete 首音符 → 邻接断裂" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+  test "delete 首音符 → push 到下一个邻居" do
+    {:ok, tl, [a, b, _c, _d]} = build_4()
     int = make_timing_int({nil, a, b}, %{0 => 0.0})
 
     {:ok, tl} = Timeline.delete_note(tl, a)
-    assert NoteTriplet.rebase(int, tl) == {:conflict, :adjacency_lost}
+    # tombstone → nearest_active(a, :next) → b
+    assert {:push, b, rebased} = NoteTriplet.rebase(int, tl)
+    assert rebased.anchor == {nil, b, _c}
+  end
+
+  # ============================================================
+  # 场景 3c: orphan_direction
+  # ============================================================
+
+  @tag :spike
+  test "delete 后 prev 方向 push（pitch channel）" do
+    {:ok, tl, [_a, b, c, d]} = build_4()
+    int = make_timing_int({b, c, d}, %{0 => 0.0})
+
+    {:ok, tl} = Timeline.delete_note(tl, c)
+    # c 墓碑 → :prev 方向找 b
+    assert {:push, b, rebased} = NoteTriplet.rebase(int, tl, :prev)
+    {prev, current, _next} = rebased.anchor
+    assert current == b
+  end
+
+  # ============================================================
+  # 场景 3d: GC 回收无引用墓碑
+  # ============================================================
+
+  @tag :spike
+  test "GC 回收无 intervention 引用的墓碑" do
+    {:ok, tl, [a, b, c, d]} = build_4()
+
+    {:ok, tl} = Timeline.delete_note(tl, b)
+    assert MapSet.size(tl.tombstones) == 1
+    assert length(tl.note_order) == 4
+
+    # intervention 锚在 c（不引用 b）→ GC 回收 b
+    int = make_timing_int({a, c, d}, %{0 => 0.0})
+    tl = Timeline.gc(tl, [int])
+
+    assert MapSet.size(tl.tombstones) == 0
+    assert tl.note_order == [a, c, d]
+  end
+
+  @tag :spike
+  test "GC 保留被引用的墓碑" do
+    {:ok, tl, [a, b, c, _d]} = build_4()
+
+    {:ok, tl} = Timeline.delete_note(tl, c)
+    assert MapSet.size(tl.tombstones) == 1
+
+    # intervention 锚在 c 旁边（current=c）→ GC 保留 c
+    int = make_timing_int({b, c, nil}, %{0 => 0.0})
+    tl = Timeline.gc(tl, [int])
+
+    assert MapSet.size(tl.tombstones) == 1
+    assert length(tl.note_order) == 4
   end
 
   # ============================================================
