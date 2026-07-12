@@ -195,6 +195,29 @@ defmodule Zongzi.Timeline do
     end
   end
 
+  @doc """
+  删除 seq_id（不经过墓碑，直接从 note_order 移除）。
+
+  与 `merge_notes/4` 不同：merge 保留墓碑以维护邻接稳定性，
+  delete 彻底移除 seq_id——锚在其上的 intervention 变为 orphan，
+  由 `nearest_active/3` 沿方向找最近活跃邻居重新锚定。
+
+  对应"直接删除音符"的编辑操作（非 merge）。
+  """
+  @spec delete_note(t(), SeqID.t()) :: {:ok, t()} | {:error, term()}
+  def delete_note(%__MODULE__{} = tl, seq_id) do
+    with {:ok, idx} <- note_order_index(tl, seq_id),
+         :ok <- assert_not_tombstone(tl, seq_id) do
+      tl = %__MODULE__{
+        tl
+        | note_order: List.delete_at(tl.note_order, idx),
+          seq_map: Map.delete(tl.seq_map, seq_id)
+      }
+
+      {:ok, tl}
+    end
+  end
+
   # ---- 查询 ----
 
   @doc """
