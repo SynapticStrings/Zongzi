@@ -1,9 +1,9 @@
-defmodule Zongzi.Timeline.TimeSig do
+defmodule Zongzi.Score.TimeSig do
   @moduledoc """
   拍号系统的领域模型。
   """
 
-  alias Zongzi.Timeline.Record
+  alias Zongzi.Score.Record
 
   # 标准拍子
   @type standard ::

@@ -1,7 +1,7 @@
 defmodule Zongzi.TempoLinearTest do
   use ExUnit.Case
 
-  alias Zongzi.Timeline.{Tempo, TempoMap}
+  alias Zongzi.Score.{Tempo, TempoMap}
 
   @tpqn 480
 

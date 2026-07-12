@@ -11,7 +11,7 @@ defmodule Zongzi.Score.Slicer do
   defmodule Window do
     @moduledoc "一个切片窗口，包含时间范围与音符 ID 列表。"
     alias Zongzi.Util.ID
-    alias Zongzi.Timeline.Tick
+    alias Zongzi.Score.Tick
 
     @type t :: %__MODULE__{
             tick_start: Tick.numeric_tick(),

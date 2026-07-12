@@ -3,7 +3,8 @@ defmodule Zongzi.Score.Note do
   有关音符的领域模型。
   """
   alias Zongzi.{Util.ID, Util.Model, Score.Key}
-  alias Zongzi.Timeline.{Tick, SeqID}
+  alias Zongzi.Score.Tick
+  alias Zongzi.Timeline.SeqID
 
   # 切片操作逻辑
   # 默认交给 Slicer 根据休止时间自动判断
@@ -57,7 +58,9 @@ defmodule Zongzi.Score.Note do
   def new(attrs) do
     with {:ok, normalized} <- normalize_attrs(attrs, @keys) do
       case Map.fetch(normalized, :id) do
-        :error -> {:error, {:missing_id, "Note_"}}
+        :error ->
+          {:error, {:missing_id, "Note_"}}
+
         {:ok, _id} ->
           # seq_id 默认 nil（由 Timeline.insert_note 分配）。
           # 反序列化时 attrs 里显式传 seq_id: <int> 即可。

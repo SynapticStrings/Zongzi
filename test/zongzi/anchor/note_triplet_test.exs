@@ -21,6 +21,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
 
   defp build_note(start_tick) do
     {:ok, key} = Key.TwelveET.new(60)
+
     Note.new(%{
       id: ID.generate_id("Note_"),
       start_tick: start_tick,
@@ -89,7 +90,8 @@ defmodule Zongzi.Anchor.NoteTripletTest do
   describe "tombstone → merged_away" do
     test "merge 后目标 seq_id 变成墓碑" do
       {:ok, tl, {_a, b, c}} = build_timeline_3()
-      int = build_intervention({b, c, nil})  # c 是当前锚定音符
+      # c 是当前锚定音符
+      int = build_intervention({b, c, nil})
 
       # merge b 和 c，c 变墓碑
       {:ok, tl} = Timeline.merge_notes(tl, b, c, "merged_id")
@@ -104,7 +106,8 @@ defmodule Zongzi.Anchor.NoteTripletTest do
   describe "not_found → orphan push" do
     test "seq_id 不存在时向 next 方向 push" do
       {:ok, tl, {a, b, _c}} = build_timeline_3()
-      int = build_intervention({a, 99999, b})  # 99999 不存在
+      # 99999 不存在
+      int = build_intervention({a, 99999, b})
 
       # nearest_active(tl, 99999, :next) 也找不到 → no_active_neighbor
       # 所以会走到 {:conflict, :adjacency_lost}

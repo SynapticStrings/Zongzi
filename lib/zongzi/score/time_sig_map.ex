@@ -1,10 +1,10 @@
-defmodule Zongzi.Timeline.TimeSigMap do
+defmodule Zongzi.Score.TimeSigMap do
   @moduledoc """
   拍号变化事件的编译映射表。
   内部委托 `RecordMap` 完成编译与基于 Bar 的二分查找。
   """
 
-  alias Zongzi.Timeline.{TimeSig, RecordMap, Record, Tick}
+  alias Zongzi.Score.{TimeSig, RecordMap, Record, Tick}
   import Tick
 
   @type compiled_event :: %{

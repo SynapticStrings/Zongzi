@@ -1,4 +1,4 @@
-defmodule Zongzi.Timeline.Record do
+defmodule Zongzi.Score.Record do
   @moduledoc """
   通用的、基于 Tick/Bar 的 Record 抽象。
 
@@ -13,7 +13,7 @@ defmodule Zongzi.Timeline.Record do
   两者都是非负整数，从 0 开始。
   """
 
-  alias Zongzi.Timeline.Tick
+  alias Zongzi.Score.Tick
 
   @typedoc "Record 的位置：Tick 刻或 Bar 小节号，从 0 开始"
   @type position :: non_neg_integer()

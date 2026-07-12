@@ -1,7 +1,7 @@
 defmodule Zongzi.RecordMapTest do
   use ExUnit.Case
 
-  alias Zongzi.Timeline.RecordMap
+  alias Zongzi.Score.RecordMap
 
   # ---- 辅助 ----
 

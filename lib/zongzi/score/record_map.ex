@@ -1,4 +1,4 @@
-defmodule Zongzi.Timeline.RecordMap do
+defmodule Zongzi.Score.RecordMap do
   @moduledoc """
   通用的 Record 编译与二分查找引擎。
 
@@ -24,7 +24,7 @@ defmodule Zongzi.Timeline.RecordMap do
       RecordMap.compile(tempo_events, reducer, 0.0)
   """
 
-  alias Zongzi.Timeline.Record
+  alias Zongzi.Score.Record
 
   @typedoc """
   编译后的事件。

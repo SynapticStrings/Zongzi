@@ -15,6 +15,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     @impl true
     def scope(int, tl) do
       {_prev, current, _next} = int.anchor
+
       case Timeline.adjacent(tl, current) do
         {:ok, {_p, _c, _n}} -> {480, 1440}
         _ -> {0, 0}
@@ -43,8 +44,14 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   defp make_note(start_tick, lyric) do
     {:ok, key} = Key.TwelveET.new(60)
-    Note.new(%{id: ID.generate_id("N_"), start_tick: start_tick,
-               duration_tick: 480, key: key, lyric: lyric})
+
+    Note.new(%{
+      id: ID.generate_id("N_"),
+      start_tick: start_tick,
+      duration_tick: 480,
+      key: key,
+      lyric: lyric
+    })
   end
 
   defp make_timing_int(triplet, base, delta \\ %{}) do
@@ -55,6 +62,7 @@ defmodule Zongzi.Intervention.SpikeTest do
       payload: %{base: base, delta: delta},
       strategy: MockTiming
     }
+
     %{int | snapshot: MockTiming.snapshot(nil, int)}
   end
 
@@ -92,7 +100,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "split 后 payload 层判断归属" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+    {:ok, tl, [_a, b, c, _d]} = build_4()
     base = %{"boundary_2" => 0.25}
     # 锚在 c={b,c,d}，但 delta 作用在尾音（tick 靠近末尾）
     # split c 后 anchor 存活，payload 根据 scope 的 tick range 判归属
@@ -139,7 +147,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "delete 中间音符 → push 到活跃邻居" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+    {:ok, tl, [a, b, c, d]} = build_4()
     int = make_timing_int({a, b, c}, %{0 => 0.0})
 
     # delete b → 墓碑，仍在 note_order
@@ -147,18 +155,18 @@ defmodule Zongzi.Intervention.SpikeTest do
     # tombstone → nearest_active(b, :next) 跳墓碑找到 c
     # {:push, c, updated}，锚更新为 {a, c, d}（如果 d 存在）
     assert {:push, c, rebased} = NoteTriplet.rebase(int, tl)
-    assert rebased.anchor == {a, c, _d}
+    assert rebased.anchor == {a, c, d}
   end
 
   @tag :spike
   test "delete 首音符 → push 到下一个邻居" do
-    {:ok, tl, [a, b, _c, _d]} = build_4()
+    {:ok, tl, [a, b, c, _d]} = build_4()
     int = make_timing_int({nil, a, b}, %{0 => 0.0})
 
     {:ok, tl} = Timeline.delete_note(tl, a)
     # tombstone → nearest_active(a, :next) → b
     assert {:push, b, rebased} = NoteTriplet.rebase(int, tl)
-    assert rebased.anchor == {nil, b, _c}
+    assert rebased.anchor == {nil, b, c}
   end
 
   # ============================================================
@@ -173,7 +181,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     {:ok, tl} = Timeline.delete_note(tl, c)
     # c 墓碑 → :prev 方向找 b
     assert {:push, b, rebased} = NoteTriplet.rebase(int, tl, :prev)
-    {prev, current, _next} = rebased.anchor
+    {_prev, current, _next} = rebased.anchor
     assert current == b
   end
 
@@ -199,7 +207,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "GC 保留被引用的墓碑" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+    {:ok, tl, [_a, b, c, _d]} = build_4()
 
     {:ok, tl} = Timeline.delete_note(tl, c)
     assert MapSet.size(tl.tombstones) == 1

@@ -36,7 +36,11 @@ defmodule Zongzi.Anchor.NoteTriplet do
           | {:push, Timeline.SeqID.t(), Intervention.t()}
   def rebase(intervention, tl, orphan_direction \\ :next)
 
-  def rebase(%Intervention{anchor: {_, current, _}} = intervention, %Timeline{} = tl, orphan_direction) do
+  def rebase(
+        %Intervention{anchor: {_, current, _}} = intervention,
+        %Timeline{} = tl,
+        orphan_direction
+      ) do
     case Timeline.try_match(tl, intervention.anchor) do
       {:ok, 3} ->
         {:ok, :preserve}

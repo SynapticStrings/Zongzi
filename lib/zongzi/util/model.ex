@@ -34,7 +34,9 @@ defmodule Zongzi.Util.Model do
       def new(attrs) do
         with {:ok, normalized} <- normalize_attrs(attrs, @keys) do
           case Map.fetch(normalized, :id) do
-            :error -> {:error, {:missing_id, unquote(id_prefix)}}
+            :error ->
+              {:error, {:missing_id, unquote(id_prefix)}}
+
             {:ok, id} ->
               struct(__MODULE__, Map.put(normalized, :id, id))
               |> validate()

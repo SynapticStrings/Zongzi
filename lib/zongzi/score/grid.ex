@@ -1,11 +1,11 @@
-defmodule Zongzi.Timeline.Grid do
+defmodule Zongzi.Score.Grid do
   @moduledoc """
   时间线网格与量化（吸附）工具。
 
   负责将任意给定的游离 Tick 吸附到最近的网格线上。
   """
 
-  alias Zongzi.Timeline.Tick
+  alias Zongzi.Score.Tick
 
   @type grid_type ::
           :quarter

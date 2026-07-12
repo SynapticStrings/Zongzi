@@ -1,4 +1,4 @@
-defmodule Zongzi.Timeline.Tick do
+defmodule Zongzi.Score.Tick do
   @moduledoc "刻是编辑器的时间单位。"
 
   @type numeric_tick :: non_neg_integer()

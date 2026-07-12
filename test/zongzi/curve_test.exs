@@ -150,7 +150,14 @@ defmodule Zongzi.CurveTest do
 
     test "update/2 修改 Chunk 属性（id 不可变）" do
       {:ok, container} = CatmullRom.new(%{})
-      {:ok, chunk} = Chunk.new(id: ID.generate_id("CurveChunk_"), adapter: CatmullRom, container: container, start_tick: 0)
+
+      {:ok, chunk} =
+        Chunk.new(
+          id: ID.generate_id("CurveChunk_"),
+          adapter: CatmullRom,
+          container: container,
+          start_tick: 0
+        )
 
       {:ok, moved} = Chunk.update(chunk, start_tick: 960)
       assert moved.start_tick == 960
@@ -159,7 +166,14 @@ defmodule Zongzi.CurveTest do
 
     test "update/2 拒绝修改 id" do
       {:ok, container} = CatmullRom.new(%{})
-      {:ok, chunk} = Chunk.new(id: ID.generate_id("CurveChunk_"), adapter: CatmullRom, container: container, start_tick: 0)
+
+      {:ok, chunk} =
+        Chunk.new(
+          id: ID.generate_id("CurveChunk_"),
+          adapter: CatmullRom,
+          container: container,
+          start_tick: 0
+        )
 
       assert Chunk.update(chunk, id: "fake") == {:error, :id_immutable}
     end

@@ -1,9 +1,9 @@
-defmodule Zongzi.Timeline.Tempo do
+defmodule Zongzi.Score.Tempo do
   @moduledoc """
   时长工具的入口。
   """
   alias Zongzi.Timeline
-  alias Zongzi.Timeline.Tick
+  alias Zongzi.Score.Tick
   import Tick
 
   # ---- 速度变化事件 ----
@@ -41,14 +41,14 @@ defmodule Zongzi.Timeline.Tempo do
 
     defmacro __using__(_opts) do
       quote do
-        @behaviour Zongzi.Timeline.Tempo.Segment
+        @behaviour Zongzi.Score.Tempo.Segment
       end
     end
   end
 
   defmodule Step do
     @moduledoc "最简单的速度段定义——阶梯。"
-    alias Zongzi.Timeline.Tempo.{Segment, Event}
+    alias Zongzi.Score.Tempo.{Segment, Event}
     use Segment
     defstruct [:start_tick, :end_tick, :bpm]
 
@@ -82,8 +82,8 @@ defmodule Zongzi.Timeline.Tempo do
 
   defmodule Linear do
     @moduledoc "线性渐变速度段。"
-    alias Zongzi.Timeline.Tempo.{Segment, Event}
-    alias Zongzi.Timeline.Tick
+    alias Zongzi.Score.Tempo.{Segment, Event}
+    alias Zongzi.Score.Tick
     import Tick
     use Segment
     defstruct [:start_tick, :end_tick, :bpm_start, :bpm_end]

@@ -1,10 +1,10 @@
-defmodule Zongzi.Timeline.TempoMap do
+defmodule Zongzi.Score.TempoMap do
   @moduledoc """
   根据变化事件返回编译后的速度映射表。
   内部委托 `RecordMap` 完成编译与基于 Tick 的二分查找。
   """
 
-  alias Zongzi.{Timeline, Timeline.Tempo, Timeline.Tick, Timeline.RecordMap, Timeline.Record}
+  alias Zongzi.{Timeline, Score.Tempo, Score.Tick, Score.RecordMap, Score.Record}
   import Tick
 
   @type compiled_event :: %{

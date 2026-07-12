@@ -29,7 +29,7 @@ defmodule Zongzi.Timeline do
 
   机制细节：`Anchor.NoteTriplet`（待实现）。
   """
-  @type tick :: Zongzi.Timeline.Tick.t()
+  @type tick :: Zongzi.Score.Tick.t()
 
   # 物理时间
   @type physical_time :: float()
@@ -267,9 +267,9 @@ defmodule Zongzi.Timeline do
     case adjacent(tl, old_current) do
       {:ok, {new_prev, _, new_next}} ->
         matches =
-          (old_prev == new_prev && 1 || 0) +
+          ((old_prev == new_prev && 1) || 0) +
             1 +
-            (old_next == new_next && 1 || 0)
+            ((old_next == new_next && 1) || 0)
 
         {:ok, matches}
 

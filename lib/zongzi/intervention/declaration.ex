@@ -41,7 +41,7 @@ defmodule Zongzi.Intervention.Declaration do
   必须是静态可算的纯函数，不能依赖投影结果。
   """
   @callback scope(intervention :: Intervention.t(), timeline :: Timeline.t()) ::
-              {Timeline.Tick.t(), Timeline.Tick.t()}
+              {Zongzi.Score.Tick.t(), Zongzi.Score.Tick.t()}
 
   @doc """
   从投影切片中提取此 intervention 依赖的原始值。

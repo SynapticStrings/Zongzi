@@ -9,7 +9,15 @@ defmodule Zongzi.TimelineTest do
 
   defp build_note(attrs) do
     {:ok, key} = Key.TwelveET.new(60)
-    defaults = [id: ID.generate_id("Note_"), start_tick: 0, duration_tick: 480, key: key, lyric: "あ"]
+
+    defaults = [
+      id: ID.generate_id("Note_"),
+      start_tick: 0,
+      duration_tick: 480,
+      key: key,
+      lyric: "あ"
+    ]
+
     Note.new(Keyword.merge(defaults, attrs) |> Enum.into(%{}))
   end
 

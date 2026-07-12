@@ -1,7 +1,7 @@
 defmodule Zongzi.TimeSigMapTest do
   use ExUnit.Case
 
-  alias Zongzi.Timeline.TimeSigMap
+  alias Zongzi.Score.TimeSigMap
   doctest TimeSigMap
 
   describe "compile/1" do

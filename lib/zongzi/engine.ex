@@ -23,12 +23,12 @@ defmodule Zongzi.Engine do
   - `opts` — 引擎特定选项（sample rate, frame shift 等）
   """
 
-  alias Zongzi.{Intervention, Score.Note, Timeline}
+  alias Zongzi.{Intervention, Score.Note, Score.Tempo}
 
   @type request :: %__MODULE__{
           notes: [Note.t()],
           interventions: [Intervention.t()],
-          tempo_segments: [Timeline.Tempo.Segment.segment()],
+          tempo_segments: [Tempo.Segment.segment()],
           opts: keyword()
         }
 
