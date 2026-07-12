@@ -45,7 +45,7 @@ defmodule Zongzi.Curve.Adapter do
   @callback span(container :: struct()) :: non_neg_integer()
 
   @doc "按给定 tick 序列采样，返回 float-32-native 二进制。tick_seq 可以是 list 或 Range。"
-  @callback rasterize(container :: struct(), tick_seq :: Enumerable.t()) :: binary()
+  @callback rasterize(container :: struct(), tick_seq :: Enumerable.t(Zongzi.Score.Tick.t())) :: binary()
   # 后续 NIF 替换
 
   defmacro __using__(opts) do

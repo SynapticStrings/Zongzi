@@ -1,4 +1,6 @@
 defmodule Zongzi.Util.ID do
+  @moduledoc "声明领域实体的 ID 的模块。"
+
   @typedoc "声明 ID"
   @type t :: binary()
   @typedoc "用于说明是什么对象的 ID"
