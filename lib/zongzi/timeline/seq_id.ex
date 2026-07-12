@@ -29,14 +29,12 @@ defmodule Zongzi.Timeline.SeqID do
   @typedoc "SeqID 是一个 monotonically-increasing 的正整数"
   @type t :: pos_integer()
 
-  @doc """
-  生成一个新的 SeqID。
-
-  底层用 `System.unique_integer([:monotonic, :positive])`，
-  保证当前 BEAM 实例内的全局唯一 + 单调递增。
-  """
-  @spec generate() :: t()
-  def generate, do: System.unique_integer([:monotonic, :positive])
+  # SeqID 生成权已移交给 Timeline（自持 counter），不再提供全局 generate/0。
+  # 这里只保留类型定义和比较函数。
+  #
+  # 原因：`System.unique_integer([:monotonic])` 是 BEAM 实例级的，跨会话重启后
+  # 计数器归零，与已序列化的 seq_id 碰撞。Timeline 自持 `next_seq` 字段，
+  # 反序列化时从已载入的 max seq_id + 1 起算。
 
   @doc """
   比较两个 SeqID 的先后顺序。

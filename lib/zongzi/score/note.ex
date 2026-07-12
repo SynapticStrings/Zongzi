@@ -51,23 +51,17 @@ defmodule Zongzi.Score.Note do
   @doc """
   创建新音符。
 
-  如果 `attrs` 没有提供 `:seq_id`，自动生成一个新的 SeqID。
+  `seq_id` 默认为 nil——由 `Timeline.insert_note/2` 分配。
   反序列化时可以显式传入已有的 `:seq_id`。
-
-  与 Model 默认的 `new/1` 的区别：seq_id 自动生成，不需要调用方显式传入。
   """
   def new(attrs) do
     with {:ok, normalized} <- normalize_attrs(attrs, @keys) do
       case Map.fetch(normalized, :id) do
         :error -> {:error, {:missing_id, "Note_"}}
-        {:ok, id} ->
-          seq_id = case normalized do
-            %{seq_id: sid} when not is_nil(sid) -> sid
-            _ -> SeqID.generate()
-          end
+        {:ok, _id} ->
+          # seq_id 默认 nil（由 Timeline.insert_note 分配）。
+          # 反序列化时 attrs 里显式传 seq_id: <int> 即可。
           normalized
-          |> Map.put(:id, id)
-          |> Map.put(:seq_id, seq_id)
           |> then(&struct!(%__MODULE__{}, &1))
           |> validate()
       end

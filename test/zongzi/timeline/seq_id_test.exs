@@ -3,51 +3,27 @@ defmodule Zongzi.Timeline.SeqIDTest do
 
   alias Zongzi.Timeline.SeqID
 
-  describe "generate/0" do
-    test "生成正整数的 SeqID" do
-      id = SeqID.generate()
-      assert is_integer(id) and id > 0
-    end
-
-    test "连续生成是严格递增的" do
-      a = SeqID.generate()
-      b = SeqID.generate()
-      c = SeqID.generate()
-
-      assert a < b
-      assert b < c
-    end
-
-    test "批量生成的 ID 互不重复" do
-      ids = for _ <- 1..1000, do: SeqID.generate()
-      assert length(Enum.uniq(ids)) == 1000
-    end
-  end
+  # generate/0 已移除——SeqID 生成权移交 Timeline.generate/1。
+  # 对应测试见 timeline_test.exs。
 
   describe "compare/2" do
     test "较小 → :lt" do
-      a = SeqID.generate()
-      b = SeqID.generate()
-      assert SeqID.compare(a, b) == :lt
+      assert SeqID.compare(1, 2) == :lt
     end
 
     test "较大 → :gt" do
-      a = SeqID.generate()
-      b = SeqID.generate()
-      assert SeqID.compare(b, a) == :gt
+      assert SeqID.compare(2, 1) == :gt
     end
 
     test "相同 → :eq" do
-      a = SeqID.generate()
-      assert SeqID.compare(a, a) == :eq
+      assert SeqID.compare(42, 42) == :eq
     end
   end
 
   describe "类型规格" do
     test "SeqID 是 pos_integer" do
-      id = SeqID.generate()
-      assert is_integer(id)
-      refute id <= 0
+      assert is_integer(1)
+      refute 1 <= 0
     end
   end
 end
