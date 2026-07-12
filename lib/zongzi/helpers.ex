@@ -1,7 +1,33 @@
 defmodule Zongzi.Helpers do
   @moduledoc "一些帮助函数。"
 
-  @doc "规整属性，仅保留 `fields` 中声明的键。"
+  @spec normalize_attrs(any(), any()) :: {:ok, map()} | {:error, term()}
+
+  @doc """
+  规整属性，仅保留 `fields` 中声明的键。
+
+  输入合法会返回 `{:ok, normalized_result}` ，输入需要满足：
+
+  - `attrs`: 包括 Map 以及 Keywords
+  - `fields`: 列表，元素包括原子以及元组
+
+  否则会返回对应的错误。
+
+  ### 用例
+
+      iex> Zongzi.Helpers.normalize_attrs(
+      ...> [name: "初音ミク", platform: {:yamaha, :vocaloid}, extra: "公主殿下赛高！",
+      ...> unrealted_context: %{blabla: nil}], [:name, :platform, extra: ""])
+      {:ok,
+      %{
+        extra: "公主殿下赛高！",
+        name: "初音ミク",
+        platform: {:yamaha, :vocaloid}
+      }}
+
+      iex> Zongzi.Helpers.normalize_attrs(%{foo: "a"}, 1)
+      {:error, {:invalid_fields, 1}}
+  """
   def normalize_attrs(attrs, fields) do
     with {:ok, allowed_set} <- build_allowed_set(fields),
          {:ok, pairs} <- to_pairs(attrs) do

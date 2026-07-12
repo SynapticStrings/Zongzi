@@ -7,13 +7,11 @@ defmodule Zongzi.Engine do
 
   ## 多轮循环
 
-  ```
-  edit batch → rebase_all → conflicts 上浮 UI
-                           ↓
-                        render → artifact
-                           ↓
-                   adopt / 挂新 intervention → …
-  ```
+      # conflicts 上浮用户界面 ← rebase_all ← edit batch
+      #       ↓
+      #     render → artifact
+      #       ↓
+      # 挂新 intervention（adapt / modify / ...） → 作为新的 batch
 
   ## Request 字段
 
@@ -32,8 +30,6 @@ defmodule Zongzi.Engine do
           opts: keyword()
         }
 
-  @type artifact :: term()
-
   defstruct [
     :notes,
     :interventions,
@@ -41,8 +37,10 @@ defmodule Zongzi.Engine do
     opts: []
   ]
 
+  @type artifact :: term()
+
   @doc """
-  渲染一帧。
+  执行一轮渲染。
 
   消费 request 中的 notes + interventions + tempo，
   产生引擎特定的 artifact（音频、参数序列、标注等）。
@@ -57,6 +55,5 @@ defmodule Zongzi.Engine do
   - `{:ok, artifact}` — 渲染成功，artifact 含最终输出 + resolve 结果
   - `{:error, reason}` — 渲染失败（引擎自身错误，不是 intervention conflict）
   """
-  @callback render(request :: request()) ::
-              {:ok, artifact()} | {:error, term()}
+  @callback render(request :: request()) :: {:ok, artifact()} | {:error, term()}
 end

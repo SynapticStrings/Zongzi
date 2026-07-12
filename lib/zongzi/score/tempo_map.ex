@@ -4,13 +4,13 @@ defmodule Zongzi.Score.TempoMap do
   内部委托 `RecordMap` 完成编译与基于 Tick 的二分查找。
   """
 
-  alias Zongzi.{Timeline, Score.Tempo, Score.Tick, Score.RecordMap, Score.Record}
+  alias Zongzi.{Score.Tempo, Score.Tick, Score.RecordMap, Score.Record}
   import Tick
 
   @type compiled_event :: %{
           start_pos: Tick.numeric_tick(),
           end_pos: Tick.t(),
-          start_sec: Timeline.physical_time(),
+          start_sec: Tempo.physical_time(),
           strategy: Tempo.Segment.segment()
         }
   @type t :: tuple()

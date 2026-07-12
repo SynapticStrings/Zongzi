@@ -29,11 +29,6 @@ defmodule Zongzi.Timeline do
 
   机制细节：`Anchor.NoteTriplet`（待实现）。
   """
-  @type tick :: Zongzi.Score.Tick.t()
-
-  # 物理时间
-  @type physical_time :: float()
-
   alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
 
   @type t :: %__MODULE__{

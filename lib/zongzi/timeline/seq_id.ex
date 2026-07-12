@@ -26,7 +26,7 @@ defmodule Zongzi.Timeline.SeqID do
   锚在其上的 Intervention 不会因为 ID 回收而失效。
   """
 
-  @typedoc "SeqID 是一个 monotonically-increasing 的正整数"
+  @typedoc "SeqID 是一个单调递增的正整数"
   @type t :: pos_integer()
 
   # SeqID 生成权已移交给 Timeline（自持 counter），不再提供全局 generate/0。

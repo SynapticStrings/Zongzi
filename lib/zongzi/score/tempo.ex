@@ -2,9 +2,13 @@ defmodule Zongzi.Score.Tempo do
   @moduledoc """
   时长工具的入口。
   """
-  alias Zongzi.Timeline
-  alias Zongzi.Score.Tick
+  alias Zongzi.Score.{Tick, Tempo}
+
+  # 为了使用其的 guards
   import Tick
+
+  @typedoc "物理时间。"
+  @type physical_time :: float()
 
   # ---- 速度变化事件 ----
 
@@ -36,7 +40,7 @@ defmodule Zongzi.Score.Tempo do
     @callback duration_sec(segment, tpqn :: pos_integer()) :: duration()
     @callback tick_to_sec(segment, tick_offset :: Tick.numeric_tick(), tpqn :: pos_integer()) ::
                 duration()
-    @callback sec_to_tick(segment, sec_offset :: Timeline.physical_time(), tpqn :: pos_integer()) ::
+    @callback sec_to_tick(segment, sec_offset :: Tempo.physical_time(), tpqn :: pos_integer()) ::
                 Tick.numeric_tick()
 
     defmacro __using__(_opts) do
@@ -147,7 +151,12 @@ defmodule Zongzi.Score.Tempo do
       do: (be - bs) / (et - st)
   end
 
-  defmodule Curve, do: nil
+  # defmodule Curve, do: nil
+  # 留个 stub 在这里
+  # 下游应用最好自己实现，用 NIF integrate 成小 step/linear 甚至是自己搞都可以
+  #（不要用 zongzi 内置的 Curve 工具，因为其依赖这里的时间线机制）
+
+  # ---- 一些工具函数 ----
 
   @spec build_segment_from_event(module(), Tick.t(), Tick.t(), any()) ::
           {:ok, Segment.segment()} | {:error, term()}
@@ -169,7 +178,7 @@ defmodule Zongzi.Score.Tempo do
   @spec duration_sec(Segment.segment(), pos_integer()) :: Segment.duration()
   def duration_sec(segment, tpqn), do: impl(segment).duration_sec(segment, tpqn)
 
-  @spec sec_to_tick(Segment.segment(), Timeline.physical_time(), pos_integer()) ::
+  @spec sec_to_tick(Segment.segment(), physical_time(), pos_integer()) ::
           Segment.duration()
   def sec_to_tick(segment, sec, tpqn), do: impl(segment).sec_to_tick(segment, sec, tpqn)
 
