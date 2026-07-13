@@ -8,7 +8,7 @@ defmodule Zongzi.Intervention do
 
   ## 两个判死时机
 
-  - **编辑时（结构）** — `Anchor.NoteTriplet.rebase/3` 检查锚点邻接是否存活。
+  - **编辑时（结构）** — `Anchor.Strategy`（默认 `NoteTriplet`）检查锚点邻接是否存活。
   - **渲染时（语义）** — strategy 比对 `snapshot` 与当前投影输出，决定 apply / conflict。
 
   snapshot 方案优于输入指纹：改了歌词但 G2P 输出恰好相同不应判死，

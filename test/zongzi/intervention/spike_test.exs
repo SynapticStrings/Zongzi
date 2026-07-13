@@ -3,7 +3,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   alias Zongzi.{Intervention, Timeline, Util.ID}
   alias Zongzi.Score.{Note, Key}
-  alias Zongzi.Anchor.NoteTriplet
+  alias Zongzi.{Anchor.NoteTriplet, Anchor.Context}
 
   # ============================================================
   # Mock phoneme_timing strategy
@@ -41,6 +41,8 @@ defmodule Zongzi.Intervention.SpikeTest do
   # ============================================================
   # Helpers
   # ============================================================
+
+  defp ctx(opts \\ %{}), do: Context.new(opts)
 
   defp make_note(start_tick, lyric) do
     {:ok, key} = Key.TwelveET.new(60)
@@ -93,7 +95,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     {:ok, tl, ^b, b2} = Timeline.split_note(tl, b, 240)
 
     # old {a,b,c} vs new adjacent(b)={a,b,b2}: prev✓ current✓ next✗ = 2/3
-    assert {:ok, {:rebase, rebased}} = NoteTriplet.rebase(int, tl)
+    assert {:ok, {:rebase, rebased}} = NoteTriplet.rebase(int, tl, ctx())
     assert rebased.anchor == {a, b, b2}
     assert rebased.snapshot == int.snapshot
   end
@@ -109,7 +111,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     {:ok, tl, ^c, _c2} = Timeline.split_note(tl, c, 240)
     # old {b,c,nil} vs new adjacent(c)={b,c,c2}: prev✓ (both nil) → wait
     # adjacent(c) after split: prev=b(✓), current=c(✓), next=c2(≠nil) = 2/3
-    assert {:ok, {:rebase, _}} = NoteTriplet.rebase(int, tl)
+    assert {:ok, {:rebase, _}} = NoteTriplet.rebase(int, tl, ctx())
     # anchor 存活——归属由 resolve 时 scope + payload tick 判定
   end
 
@@ -123,7 +125,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     int = make_timing_int({b, c, nil}, %{0 => 0.0})
 
     {:ok, tl} = Timeline.merge_notes(tl, b, c, "merged")
-    assert NoteTriplet.rebase(int, tl) == {:conflict, :merged_away}
+    assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :merged_away}
   end
 
   # ============================================================
@@ -138,7 +140,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     # drag b 到末尾 → [a, c, d, b]，adjacent(b) = {d, b, nil}
     {:ok, tl} = Timeline.drag_note(tl, b, 3)
     # old {a,b,c}: prev a!=d + current b✓ + next c!=nil = 1/3
-    assert NoteTriplet.rebase(int, tl) == {:conflict, :adjacency_lost}
+    assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :adjacency_lost}
   end
 
   # ============================================================
@@ -153,8 +155,9 @@ defmodule Zongzi.Intervention.SpikeTest do
     # delete b → 墓碑，仍在 note_order
     {:ok, tl} = Timeline.delete_note(tl, b)
     # tombstone → nearest_active(b, :next) 跳墓碑找到 c
-    # {:push, c, updated}，锚更新为 {a, c, d}（如果 d 存在）
-    assert {:push, c, rebased} = NoteTriplet.rebase(int, tl)
+    # {:relocate, updated, %{to: c}}，锚更新为 {a, c, d}（如果 d 存在）
+    assert {:ok, {:relocate, rebased, meta}} = NoteTriplet.rebase(int, tl, ctx())
+    assert meta.to == c
     assert rebased.anchor == {a, c, d}
   end
 
@@ -165,7 +168,8 @@ defmodule Zongzi.Intervention.SpikeTest do
 
     {:ok, tl} = Timeline.delete_note(tl, a)
     # tombstone → nearest_active(a, :next) → b
-    assert {:push, b, rebased} = NoteTriplet.rebase(int, tl)
+    assert {:ok, {:relocate, rebased, meta}} = NoteTriplet.rebase(int, tl, ctx())
+    assert meta.to == b
     assert rebased.anchor == {nil, b, c}
   end
 
@@ -180,7 +184,8 @@ defmodule Zongzi.Intervention.SpikeTest do
 
     {:ok, tl} = Timeline.delete_note(tl, c)
     # c 墓碑 → :prev 方向找 b
-    assert {:push, b, rebased} = NoteTriplet.rebase(int, tl, :prev)
+    assert {:ok, {:relocate, rebased, meta}} = NoteTriplet.rebase(int, tl, ctx(orphan_direction: :prev))
+    assert meta.to == b
     {_prev, current, _next} = rebased.anchor
     assert current == b
   end
@@ -232,7 +237,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     int = make_timing_int({a, b, c}, old_base, %{1 => 0.05})
 
     # 结构不变 → 3/3
-    assert NoteTriplet.rebase(int, tl) == {:ok, :preserve}
+    assert NoteTriplet.rebase(int, tl, ctx()) == {:ok, :preserve}
 
     # 模拟 G2P 重跑：歌词改后新投影不同
     new_proj = %{0 => 0.0, 1 => 0.13, 2 => 0.22}
@@ -254,7 +259,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
     # force_merge 不改 seq_id，不影响 triplet
     int = make_timing_int({b, c, d}, %{0 => 0.0})
-    assert NoteTriplet.rebase(int, tl) == {:ok, :preserve}
+    assert NoteTriplet.rebase(int, tl, ctx()) == {:ok, :preserve}
   end
 
   # ============================================================
@@ -273,7 +278,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     {:ok, tl, ^b, b2} = Timeline.split_note(tl, b, 240)
 
     # rebase
-    {:ok, {:rebase, rebased}} = NoteTriplet.rebase(int, tl)
+    {:ok, {:rebase, rebased}} = NoteTriplet.rebase(int, tl, ctx())
     assert rebased.anchor == {a, b, b2}
 
     # render + resolve
