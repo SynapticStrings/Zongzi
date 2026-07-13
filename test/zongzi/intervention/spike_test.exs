@@ -16,8 +16,8 @@ defmodule Zongzi.Intervention.SpikeTest do
     def scope(int, tl) do
       {_prev, current, _next} = int.anchor
 
-      case Timeline.adjacent(tl, current) do
-        {:ok, {_p, _c, _n}} -> {480, 1440}
+      case Zongzi.Timeline.Query.status(tl, current) do
+        :active -> {480, 1440}
         _ -> {0, 0}
       end
     end
@@ -78,7 +78,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     {:ok, tl, n2} = Timeline.insert_note(tl, n2)
     {:ok, tl, n3} = Timeline.insert_note(tl, n3)
     {:ok, tl, n4} = Timeline.insert_note(tl, n4)
-    {:ok, tl, [n1.seq_id, n2.seq_id, n3.seq_id, n4.seq_id]}
+    {:ok, tl, [n1.seq_id, n2.seq_id, n3.seq_id, n4.seq_id], [n1, n2, n3, n4]}
   end
 
   # ============================================================
@@ -87,28 +87,28 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "split 后 rebase 2/3 存活" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+    {:ok, tl, [a, b, c, _d], [_n1, n2, _n3, _n4]} = build_4()
     base = %{0 => 0.0, 1 => 0.12, 2 => 0.25}
     int = make_timing_int({a, b, c}, base, %{1 => 0.03})
 
     # split b → [a, b, b2, c, d]
-    {:ok, tl, ^b, b2} = Timeline.split_note(tl, b, 240)
+    {:ok, tl, _before, after_note} = Timeline.split_note(tl, n2, 720, "split_id")
 
     # old {a,b,c} vs new adjacent(b)={a,b,b2}: prev✓ current✓ next✗ = 2/3
     assert {:ok, {:rebase, rebased}} = NoteTriplet.rebase(int, tl, ctx())
-    assert rebased.anchor == {a, b, b2}
+    assert rebased.anchor == {a, b, after_note.seq_id}
     assert rebased.snapshot == int.snapshot
   end
 
   @tag :spike
   test "split 后 payload 层判断归属" do
-    {:ok, tl, [_a, b, c, _d]} = build_4()
+    {:ok, tl, [_a, b, c, _d], [_n1, _n2, n3, _n4]} = build_4()
     base = %{"boundary_2" => 0.25}
     # 锚在 c={b,c,d}，但 delta 作用在尾音（tick 靠近末尾）
     # split c 后 anchor 存活，payload 根据 scope 的 tick range 判归属
     int = make_timing_int({b, c, nil}, base, %{"boundary_2" => -0.02})
 
-    {:ok, tl, ^c, _c2} = Timeline.split_note(tl, c, 240)
+    {:ok, tl, _before, _after_note} = Timeline.split_note(tl, n3, 1200, "split_id")
     # old {b,c,nil} vs new adjacent(c)={b,c,c2}: prev✓ (both nil) → wait
     # adjacent(c) after split: prev=b(✓), current=c(✓), next=c2(≠nil) = 2/3
     assert {:ok, {:rebase, _}} = NoteTriplet.rebase(int, tl, ctx())
@@ -121,10 +121,10 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "merge 后目标变墓碑" do
-    {:ok, tl, [_a, b, c, _d]} = build_4()
+    {:ok, tl, [_a, b, c, _d], [_n1, n2, n3, _n4]} = build_4()
     int = make_timing_int({b, c, nil}, %{0 => 0.0})
 
-    {:ok, tl} = Timeline.merge_notes(tl, b, c, "merged")
+    {:ok, tl, _merged} = Timeline.merge_notes(tl, n2, n3, "merged")
     assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :merged_away}
   end
 
@@ -134,7 +134,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "drag 破坏邻接 → conflict" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+    {:ok, tl, [a, b, c, _d], _notes} = build_4()
     int = make_timing_int({a, b, c}, %{0 => 0.0, 1 => 0.12})
 
     # drag b 到末尾 → [a, c, d, b]，adjacent(b) = {d, b, nil}
@@ -149,7 +149,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "delete 中间音符 → push 到活跃邻居" do
-    {:ok, tl, [a, b, c, d]} = build_4()
+    {:ok, tl, [a, b, c, d], _notes} = build_4()
     int = make_timing_int({a, b, c}, %{0 => 0.0})
 
     # delete b → 墓碑，仍在 note_order
@@ -163,7 +163,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "delete 首音符 → push 到下一个邻居" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+    {:ok, tl, [a, b, c, _d], _notes} = build_4()
     int = make_timing_int({nil, a, b}, %{0 => 0.0})
 
     {:ok, tl} = Timeline.delete_note(tl, a)
@@ -179,12 +179,14 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "delete 后 prev 方向 push（pitch channel）" do
-    {:ok, tl, [_a, b, c, d]} = build_4()
+    {:ok, tl, [_a, b, c, d], _notes} = build_4()
     int = make_timing_int({b, c, d}, %{0 => 0.0})
 
     {:ok, tl} = Timeline.delete_note(tl, c)
     # c 墓碑 → :prev 方向找 b
-    assert {:ok, {:relocate, rebased, meta}} = NoteTriplet.rebase(int, tl, ctx(orphan_direction: :prev))
+    assert {:ok, {:relocate, rebased, meta}} =
+             NoteTriplet.rebase(int, tl, ctx(orphan_direction: :prev))
+
     assert meta.to == b
     {_prev, current, _next} = rebased.anchor
     assert current == b
@@ -196,7 +198,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "GC 回收无 intervention 引用的墓碑" do
-    {:ok, tl, [a, b, c, d]} = build_4()
+    {:ok, tl, [a, b, c, d], _notes} = build_4()
 
     {:ok, tl} = Timeline.delete_note(tl, b)
     assert MapSet.size(tl.tombstones) == 1
@@ -212,7 +214,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "GC 保留被引用的墓碑" do
-    {:ok, tl, [_a, b, c, _d]} = build_4()
+    {:ok, tl, [_a, b, c, _d], _notes} = build_4()
 
     {:ok, tl} = Timeline.delete_note(tl, c)
     assert MapSet.size(tl.tombstones) == 1
@@ -231,7 +233,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "改歌词后结构 3/3 但 resolve 发现快照失配" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+    {:ok, tl, [a, b, c, _d], _notes} = build_4()
 
     old_base = %{0 => 0.0, 1 => 0.10, 2 => 0.22}
     int = make_timing_int({a, b, c}, old_base, %{1 => 0.05})
@@ -255,7 +257,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "连续音符 force_merge 不误伤 triplet 匹配" do
-    {:ok, tl, [_a, b, c, d]} = build_4()
+    {:ok, tl, [_a, b, c, d], _notes} = build_4()
 
     # force_merge 不改 seq_id，不影响 triplet
     int = make_timing_int({b, c, d}, %{0 => 0.0})
@@ -268,18 +270,18 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "完整循环：挂载 → 编辑 → rebase → resolve" do
-    {:ok, tl, [a, b, c, _d]} = build_4()
+    {:ok, tl, [a, b, c, _d], [_n1, n2, _n3, _n4]} = build_4()
 
     # 挂载
     base_timing = %{0 => 0.0, 1 => 0.10, 2 => 0.20}
     int = make_timing_int({a, b, c}, base_timing, %{1 => 0.03})
 
     # 编辑：split b
-    {:ok, tl, ^b, b2} = Timeline.split_note(tl, b, 240)
+    {:ok, tl, _before, after_note} = Timeline.split_note(tl, n2, 720, "split_id")
 
     # rebase
     {:ok, {:rebase, rebased}} = NoteTriplet.rebase(int, tl, ctx())
-    assert rebased.anchor == {a, b, b2}
+    assert rebased.anchor == {a, b, after_note.seq_id}
 
     # render + resolve
     projection = %{0 => 0.0, 1 => 0.10, 2 => 0.20}

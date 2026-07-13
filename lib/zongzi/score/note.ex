@@ -181,8 +181,8 @@ defmodule Zongzi.Score.Note do
 
   `attrs` 可选，用于覆盖切分后后部音符的字段（如不同的歌词）。
   """
-  @spec split(t(), Tick.t(), map() | keyword()) :: {:ok, [t()]} | {:error, term()}
-  def split(note, split_tick, attrs \\ []) do
+  @spec split(t(), Tick.t(), map() | keyword()) :: {:ok, t(), t()} | {:error, term()}
+  def split(note, split_tick, new_id, attrs \\ []) do
     note_end = note.start_tick + note.duration_tick
 
     cond do
@@ -193,29 +193,39 @@ defmodule Zongzi.Score.Note do
         {:error, {:split_tick_after_note, split_tick, note_end}}
 
       true ->
-        with {:ok, extra_attrs} <-
-               attrs
-               |> normalize_attrs(@keys),
-             {:ok, before} <- update(note, duration_tick: split_tick - note.start_tick),
-             {:ok, after_note} <-
-               extra_attrs
-               |> Map.merge(%{
-                 start_tick: split_tick,
-                 duration_tick: note_end - split_tick,
-                 key: note.key,
-                 lyric: note.lyric,
-                 slice_flag: note.slice_flag,
-                 annotation: note.annotation,
-                 metadata: note.metadata
-               })
-               |> new() do
-          {:ok, [before, after_note]}
+        {:ok, before} = update(note, duration_tick: split_tick - note.start_tick)
+
+        extra_attrs =
+          attrs
+          |> Enum.into(%{})
+          |> Map.take(@keys)
+
+        after_attrs =
+          Map.merge(
+            %{
+              id: new_id,
+              start_tick: split_tick,
+              duration_tick: note_end - split_tick,
+              key: note.key,
+              lyric: note.lyric,
+              slice_flag: note.slice_flag,
+              annotation: note.annotation,
+              metadata: note.metadata
+            },
+            extra_attrs
+          )
+
+        case new(after_attrs) do
+          {:ok, after_note} -> {:ok, before, after_note}
+          {:error, _} = err -> err
         end
     end
   end
 
   @doc """
   合并两个音符。
+
+  `merged_id` 显式注入——不由 Note 内部生成。
 
   ## 选项
 
@@ -230,8 +240,8 @@ defmodule Zongzi.Score.Note do
   - 返回 `{:ok, merged_note}`，生成新 ID
   - 合并后 `slice_flag` 设为 `:auto`
   """
-  @spec merge(t(), t(), keyword()) :: {:ok, t()} | {:error, term()}
-  def merge(note1, note2, opts \\ []) do
+  @spec merge(t(), t(), ID.t(), keyword()) :: {:ok, t()} | {:error, term()}
+  def merge(note1, note2, merged_id, opts \\ []) do
     gap_tolerance = Keyword.get(opts, :gap_tolerance, 0)
     note1_end = note1.start_tick + note1.duration_tick
     note2_end = note2.start_tick + note2.duration_tick
@@ -263,20 +273,21 @@ defmodule Zongzi.Score.Note do
         {:error, {:gap_too_large, note1_end, note2.start_tick, gap_tolerance}}
 
       true ->
-        do_merge(note1, note1_end, note2, note2_end, lyric_merger, annotation_merger)
+        do_merge(note1, note1_end, note2, note2_end, merged_id, lyric_merger, annotation_merger)
     end
   end
 
   # ---- 一些工具函数 ----
 
   # 执行合并
-  defp do_merge(note1, note1_end, note2, note2_end, lyric_merger, annotation_merger) do
+  defp do_merge(note1, note1_end, note2, note2_end, merged_id, lyric_merger, annotation_merger) do
     start_tick = min(note1.start_tick, note2.start_tick)
     end_tick = max(note1_end, note2_end)
 
     with {:ok, lyric} <- lyric_merger.(note1, note2),
          {:ok, annotation} <- annotation_merger.(note1, note2) do
       %{
+        id: merged_id,
         start_tick: start_tick,
         duration_tick: end_tick - start_tick,
         key: note1.key,

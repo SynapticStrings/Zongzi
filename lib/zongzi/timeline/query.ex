@@ -22,11 +22,17 @@ defmodule Zongzi.Timeline.Query do
   @spec status(Timeline.t(), SeqID.t()) :: cell_status()
   def status(%Timeline{} = tl, seq_id) do
     cond do
-      not Enum.member?(tl.note_order, seq_id) -> :missing
+      not Enum.member?(tl.note_order, seq_id) ->
+        :missing
+
       MapSet.member?(tl.tombstones, seq_id) ->
         if Map.has_key?(tl.seq_map, seq_id), do: :merge_tombstone, else: :delete_tombstone
-      Map.has_key?(tl.seq_map, seq_id) -> :active
-      true -> :missing
+
+      Map.has_key?(tl.seq_map, seq_id) ->
+        :active
+
+      true ->
+        :missing
     end
   end
 
@@ -52,11 +58,13 @@ defmodule Zongzi.Timeline.Query do
     max_hops = Keyword.get(opts, :max_hops)
 
     case Timeline.note_order_index(tl, seq_id) do
-      {:error, _} -> []
+      {:error, _} ->
+        []
+
       {:ok, idx} ->
         self_part =
-          if include_self? and pass_filter?(tl, seq_id, active_only?),
-            do: [seq_id], else: []
+          if include_self? and pass_filter?(tl, seq_id, active_only?), do: [seq_id], else: []
+
         walked = walk(tl, idx, direction, active_only?, max_hops, limit)
         take_limit(self_part ++ walked, limit)
     end
@@ -75,6 +83,7 @@ defmodule Zongzi.Timeline.Query do
     case Timeline.note_order_index(tl, seq_id) do
       {:error, _} ->
         %Neighborhood{focus: seq_id, focus_status: :missing, left: [], right: []}
+
       {:ok, idx} ->
         left = collect_cells(tl, idx, :prev, count, active_only?)
         right = collect_cells(tl, idx, :next, count, active_only?)
@@ -90,10 +99,18 @@ defmodule Zongzi.Timeline.Query do
           {:ok, {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}} | {:error, :not_active}
   def scrub_triplet(%Timeline{} = tl, focus) do
     if active?(tl, focus) do
-      prev = case scan(tl, focus, :prev, active_only: true, limit: 1) do
-               [p] -> p; [] -> nil end
-      next_ = case scan(tl, focus, :next, active_only: true, limit: 1) do
-                [n] -> n; [] -> nil end
+      prev =
+        case scan(tl, focus, :prev, active_only: true, limit: 1) do
+          [p] -> p
+          [] -> nil
+        end
+
+      next_ =
+        case scan(tl, focus, :next, active_only: true, limit: 1) do
+          [n] -> n
+          [] -> nil
+        end
+
       {:ok, {prev, focus, next_}}
     else
       {:error, :not_active}
@@ -125,19 +142,27 @@ defmodule Zongzi.Timeline.Query do
   defp walk(tl, idx, direction, active_only?, max_hops, limit) do
     order = tl.note_order
     len = length(order)
-    range = case direction do
-              :prev -> (idx - 1)..0//-1
-              :next -> (idx + 1)..(len - 1)//1
-            end
+
+    range =
+      case direction do
+        :prev -> (idx - 1)..0//-1
+        :next -> (idx + 1)..(len - 1)//1
+      end
 
     {result, _hops} =
       Enum.reduce_while(range, {[], 0}, fn i, {acc, hops_count} ->
         hops_count = hops_count + 1
+
         cond do
-          max_hops && hops_count > max_hops -> {:halt, {acc, hops_count}}
-          limit && length(acc) >= limit -> {:halt, {acc, hops_count}}
+          max_hops && hops_count > max_hops ->
+            {:halt, {acc, hops_count}}
+
+          limit && length(acc) >= limit ->
+            {:halt, {acc, hops_count}}
+
           true ->
             sid = Enum.at(order, i)
+
             if pass_filter?(tl, sid, active_only?),
               do: {:cont, {[sid | acc], hops_count}},
               else: {:cont, {acc, hops_count}}
@@ -150,20 +175,29 @@ defmodule Zongzi.Timeline.Query do
   defp collect_cells(tl, idx, direction, count, active_only?) do
     order = tl.note_order
     len = length(order)
-    range = case direction do
-              :prev -> (idx - 1)..0//-1
-              :next -> (idx + 1)..(len - 1)//1
-            end
+
+    range =
+      case direction do
+        :prev -> (idx - 1)..0//-1
+        :next -> (idx + 1)..(len - 1)//1
+      end
 
     {result, _hops} =
       Enum.reduce_while(range, {[], 0}, fn i, {acc, hops_count} ->
         hops_count = hops_count + 1
         sid = Enum.at(order, i)
         st = status(tl, sid)
+
         cond do
-          length(acc) >= count -> {:halt, {acc, hops_count}}
-          active_only? and st != :active -> {:cont, {acc, hops_count}}
-          st == :missing -> {:cont, {acc, hops_count}}
+          length(acc) >= count ->
+            {:halt, {acc, hops_count}}
+
+          active_only? and st != :active ->
+            {:cont, {acc, hops_count}}
+
+          st == :missing ->
+            {:cont, {acc, hops_count}}
+
           true ->
             cell = %{seq_id: sid, status: st, order_index: i, hops_from_focus: hops_count}
             {:cont, {[cell | acc], hops_count}}

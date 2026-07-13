@@ -8,11 +8,13 @@ defmodule Zongzi.Timeline.QueryTest do
   # build_tl returns {tl, notes_with_seq_ids}
   defp build_tl(notes) do
     {:ok, tl} = Timeline.new("track_1")
+
     {tl, acc} =
       Enum.reduce(notes, {tl, []}, fn note, {tl, acc} ->
         {:ok, tl, note} = Timeline.insert_note(tl, note)
         {tl, acc ++ [note]}
       end)
+
     {tl, acc}
   end
 
@@ -41,7 +43,7 @@ defmodule Zongzi.Timeline.QueryTest do
     test "merge_tombstone after merge" do
       {tl, notes} = build_tl([note(), note()])
       [a, b] = notes
-      {:ok, tl} = Timeline.merge_notes(tl, a.seq_id, b.seq_id, "merged_note")
+      {:ok, tl, _merged} = Timeline.merge_notes(tl, a, b, "merged_note")
       assert Timeline.Query.status(tl, a.seq_id) == :active
       assert Timeline.Query.status(tl, b.seq_id) == :merge_tombstone
     end
@@ -231,28 +233,6 @@ defmodule Zongzi.Timeline.QueryTest do
       {tl, notes} = build_tl([note()])
       [a] = notes
       assert Timeline.Query.hops(tl, a.seq_id, 99999) == {:error, :not_found}
-    end
-  end
-
-  describe "nearest_active/3 (thin wrapper regression)" do
-    test "returns nearest active neighbor" do
-      {tl, notes} = build_tl([note(), note(), note()])
-      [a, b, c] = notes
-      assert Timeline.nearest_active(tl, c.seq_id, :prev) == {:ok, b.seq_id}
-      assert Timeline.nearest_active(tl, a.seq_id, :next) == {:ok, b.seq_id}
-    end
-
-    test "skips tombstones" do
-      {tl, notes} = build_tl([note(), note(), note()])
-      [a, b, c] = notes
-      {:ok, tl} = Timeline.delete_note(tl, b.seq_id)
-      assert Timeline.nearest_active(tl, c.seq_id, :prev) == {:ok, a.seq_id}
-    end
-
-    test "no neighbor returns error" do
-      {tl, notes} = build_tl([note()])
-      [a] = notes
-      assert Timeline.nearest_active(tl, a.seq_id, :prev) == {:error, :no_active_neighbor}
     end
   end
 end

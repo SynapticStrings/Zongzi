@@ -9,27 +9,36 @@ defmodule Zongzi.Anchor.ScoredHostTest do
 
   defp build_tl(notes) do
     {:ok, tl} = Timeline.new("t1")
+
     {tl, acc} =
       Enum.reduce(notes, {tl, []}, fn note, {tl, acc} ->
         {:ok, tl, note} = Timeline.insert_note(tl, note)
         {tl, acc ++ [note]}
       end)
+
     {tl, acc}
   end
 
   defp note(midi, overrides \\ %{}) do
     id = "N_#{midi}_#{System.unique_integer([:positive])}"
     {:ok, key} = Key.TwelveET.new(midi)
+
     {:ok, n} =
-      Note.new(
-        Map.merge(%{id: id, start_tick: 0, duration_tick: 480, key: key}, overrides)
-      )
+      Note.new(Map.merge(%{id: id, start_tick: 0, duration_tick: 480, key: key}, overrides))
+
     n
   end
 
   defp int_at(seq_id, prev, next_) do
-    %Intervention{id: "int_1", channel: :pitch, anchor: {prev, seq_id, next_},
-                  payload: %{}, snapshot: %{}, scope: nil, strategy: nil}
+    %Intervention{
+      id: "int_1",
+      channel: :pitch,
+      anchor: {prev, seq_id, next_},
+      payload: %{},
+      snapshot: %{},
+      scope: nil,
+      strategy: nil
+    }
   end
 
   describe "preserve" do
@@ -44,17 +53,17 @@ defmodule Zongzi.Anchor.ScoredHostTest do
     test "2/3 after split" do
       {tl, [a, b, c]} = build_tl([note(60), note(62), note(64)])
       int = int_at(b.seq_id, a.seq_id, c.seq_id)
-      {:ok, tl, _b, new_seq} = Timeline.split_note(tl, b.seq_id, 240)
+      {:ok, tl, _before, after_note} = Timeline.split_note(tl, b, 240, "split_id")
       assert {:ok, {:rebase, updated}} = ScoredHost.rebase(int, tl, ctx())
-      assert updated.anchor == {a.seq_id, b.seq_id, new_seq}
+      assert updated.anchor == {a.seq_id, b.seq_id, after_note.seq_id}
     end
   end
 
   describe "merged_away" do
     test "merge tombstone" do
-      {tl, [a, b]} = build_tl([note(60), note(62)])
+      {tl, [a, b]} = build_tl([note(60), note(60)])
       int = int_at(b.seq_id, nil, nil)
-      {:ok, tl} = Timeline.merge_notes(tl, a.seq_id, b.seq_id, "merged")
+      {:ok, tl, _merged} = Timeline.merge_notes(tl, a, b, "merged")
       assert ScoredHost.rebase(int, tl, ctx()) == {:conflict, :merged_away}
     end
   end
@@ -70,6 +79,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
 
       assert {:ok, {:relocate, _relocated, meta}} =
                ScoredHost.rebase(int, tl, ctx(notes_by_seq: notes_map, focus_note: focus))
+
       assert meta.to == d2.seq_id
       assert meta.method == :scored
       assert meta.from == d.seq_id
@@ -101,8 +111,12 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       focus = d
 
       assert {:ok, {:relocate, _relocated, meta}} =
-               ScoredHost.rebase(int, tl,
-                 ctx(notes_by_seq: notes_map, seq_to_window: seq_to_window, focus_note: focus))
+               ScoredHost.rebase(
+                 int,
+                 tl,
+                 ctx(notes_by_seq: notes_map, seq_to_window: seq_to_window, focus_note: focus)
+               )
+
       assert meta.to == c.seq_id
     end
   end
@@ -125,8 +139,13 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       focus = d
 
       assert {:ok, best, %{scores: scores}} =
-               ScoredHost.choose_host(d.seq_id, tl,
-                 ctx(notes_by_seq: notes_map, focus_note: focus), [])
+               ScoredHost.choose_host(
+                 d.seq_id,
+                 tl,
+                 ctx(notes_by_seq: notes_map, focus_note: focus),
+                 []
+               )
+
       assert best == d2.seq_id
       score_vals = Enum.map(scores, &elem(&1, 1))
       assert score_vals == Enum.sort(score_vals, :desc)
@@ -140,8 +159,12 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       focus = d
 
       assert {:conflict, :ambiguous_host} =
-               ScoredHost.choose_host(d.seq_id, tl,
-                 ctx(notes_by_seq: notes_map, focus_note: focus), [])
+               ScoredHost.choose_host(
+                 d.seq_id,
+                 tl,
+                 ctx(notes_by_seq: notes_map, focus_note: focus),
+                 []
+               )
     end
   end
 end

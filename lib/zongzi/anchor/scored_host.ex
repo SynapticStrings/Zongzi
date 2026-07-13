@@ -23,27 +23,49 @@ defmodule Zongzi.Anchor.ScoredHost do
 
   @behaviour Zongzi.Anchor.Strategy
 
-  alias Zongzi.{Intervention, Timeline}
+  alias Zongzi.Intervention
+  alias Zongzi.Timeline.Query
   alias Zongzi.Score.Key
 
   @impl true
   def rebase(intervention, tl, context) do
-    %Intervention{anchor: {_, current, _}} = intervention
+    %Intervention{anchor: {old_prev, current, old_next}} = intervention
 
-    case Timeline.try_match(tl, intervention.anchor) do
-      {:ok, 3} -> {:ok, :preserve}
-      {:ok, 2} -> do_rebase(intervention, tl, current)
-      {:ok, _} -> {:conflict, :adjacency_lost}
-
-      {:tombstone, _} ->
-        if Timeline.seq_map_has?(tl, current) do
-          {:conflict, :merged_away}
-        else
-          do_scored_relocate(intervention, tl, current, context)
-        end
-
-      {:error, :not_found} ->
+    case Query.status(tl, current) do
+      :missing ->
         do_scored_relocate(intervention, tl, current, context)
+
+      :merge_tombstone ->
+        {:conflict, :merged_away}
+
+      :delete_tombstone ->
+        do_scored_relocate(intervention, tl, current, context)
+
+      :active ->
+        nb = Query.neighborhood(tl, current, active_only: false, count: 1)
+
+        new_prev =
+          case nb.left do
+            [%{seq_id: s}] -> s
+            [] -> nil
+          end
+
+        new_next =
+          case nb.right do
+            [%{seq_id: s}] -> s
+            [] -> nil
+          end
+
+        match_count =
+          1 +
+            if(old_prev == new_prev, do: 1, else: 0) +
+            if old_next == new_next, do: 1, else: 0
+
+        case match_count do
+          3 -> {:ok, :preserve}
+          2 -> {:ok, {:rebase, %{intervention | anchor: {new_prev, current, new_next}}}}
+          _ -> {:conflict, :adjacency_lost}
+        end
     end
   end
 
@@ -52,13 +74,15 @@ defmodule Zongzi.Anchor.ScoredHost do
     scan_limit = Keyword.get(opts, :scan_limit, 4)
 
     candidates =
-      Timeline.Query.scan(tl, focus, :prev, active_only: true, limit: scan_limit) ++
-        Timeline.Query.scan(tl, focus, :next, active_only: true, limit: scan_limit)
+      Query.scan(tl, focus, :prev, active_only: true, limit: scan_limit) ++
+        Query.scan(tl, focus, :next, active_only: true, limit: scan_limit)
 
     scored = score_candidates(candidates, tl, context)
 
     case scored do
-      [] -> {:conflict, :no_host}
+      [] ->
+        {:conflict, :no_host}
+
       [{best, best_score} | rest] ->
         if length(rest) > 0 and elem(hd(rest), 1) == best_score do
           {:conflict, :ambiguous_host}
@@ -70,24 +94,21 @@ defmodule Zongzi.Anchor.ScoredHost do
 
   # ---- private ----
 
-  defp do_rebase(intervention, tl, current) do
-    case Timeline.adjacent(tl, current) do
-      {:ok, new_triplet} -> {:ok, {:rebase, %{intervention | anchor: new_triplet}}}
-      _ -> {:conflict, :adjacency_lost}
-    end
-  end
-
   defp do_scored_relocate(intervention, tl, current, context) do
     case choose_host(current, tl, context, []) do
       {:ok, best, meta} ->
-        case Timeline.Query.scrub_triplet(tl, best) do
+        case Query.scrub_triplet(tl, best) do
           {:ok, triplet} ->
             {:ok,
              {:relocate, %{intervention | anchor: triplet},
               Map.merge(meta, %{from: current, to: best, method: :scored})}}
-          {:error, :not_active} -> {:conflict, :no_host}
+
+          {:error, :not_active} ->
+            {:conflict, :no_host}
         end
-      {:conflict, _} = err -> err
+
+      {:conflict, _} = err ->
+        err
     end
   end
 
@@ -119,7 +140,10 @@ defmodule Zongzi.Anchor.ScoredHost do
   defp same_key?(n1, n2), do: Key.to_midi(n1.key) == Key.to_midi(n2.key)
 
   defp different_window?(_cand, _seq_to_window, nil), do: false
-  defp different_window?(_cand, seq_to_window, _focus_win) when map_size(seq_to_window) == 0, do: false
+
+  defp different_window?(_cand, seq_to_window, _focus_win) when map_size(seq_to_window) == 0,
+    do: false
+
   defp different_window?(cand, seq_to_window, focus_win) do
     case Map.get(seq_to_window, cand) do
       nil -> true

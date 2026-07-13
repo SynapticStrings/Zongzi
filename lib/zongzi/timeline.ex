@@ -17,7 +17,6 @@ defmodule Zongzi.Timeline do
   `adjacent/2`、`try_match/2` 等旧 API 保留在本模块，内部 delegate 到 Query。
   """
   alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
-  alias Zongzi.Timeline.Query
 
   @type t :: %__MODULE__{
           track_id: ID.t(),
@@ -46,9 +45,15 @@ defmodule Zongzi.Timeline do
   def insert_note(%__MODULE__{} = tl, %Note{} = note) do
     {seq_id, tl} =
       if note.seq_id, do: {note.seq_id, tl}, else: generate(tl)
+
     note = %{note | seq_id: seq_id}
-    tl = %__MODULE__{tl | note_order: tl.note_order ++ [seq_id],
-                        seq_map: Map.put(tl.seq_map, seq_id, note.id)}
+
+    tl = %__MODULE__{
+      tl
+      | note_order: tl.note_order ++ [seq_id],
+        seq_map: Map.put(tl.seq_map, seq_id, note.id)
+    }
+
     {:ok, tl, note}
   end
 
@@ -60,23 +65,44 @@ defmodule Zongzi.Timeline do
     note = %{note | seq_id: seq_id}
     idx = min(index, length(tl.note_order))
     {left, right} = Enum.split(tl.note_order, idx)
-    tl = %__MODULE__{tl | note_order: left ++ [seq_id | right],
-                        seq_map: Map.put(tl.seq_map, seq_id, note.id)}
+
+    tl = %__MODULE__{
+      tl
+      | note_order: left ++ [seq_id | right],
+        seq_map: Map.put(tl.seq_map, seq_id, note.id)
+    }
+
     {:ok, tl, note}
   end
 
-  @doc "在 seq_id 处切开音符，新 seq_id 插入其后。"
-  @spec split_note(t(), SeqID.t(), non_neg_integer()) ::
-          {:ok, t(), SeqID.t(), SeqID.t()} | {:error, term()}
-  def split_note(%__MODULE__{} = tl, seq_id, _split_tick) do
-    case note_order_index(tl, seq_id) do
-      {:ok, idx} ->
-        {new_seq, tl} = generate(tl)
-        {left, right} = Enum.split(tl.note_order, idx + 1)
-        tl = %__MODULE__{tl | note_order: left ++ [new_seq | right],
-                            seq_map: Map.put(tl.seq_map, new_seq, tl.seq_map[seq_id])}
-        {:ok, tl, seq_id, new_seq}
-      {:error, _} = err -> err
+  @doc """
+  在 `split_tick` 处切开音符，返回前后两个 Note。
+
+  内部调用 `Note.split/4`，`new_id` 显式注入。
+  后半音符自动分配新 seq_id 并 splice 到原音符后。
+  """
+  @spec split_note(t(), Note.t(), non_neg_integer(), ID.t()) ::
+          {:ok, t(), Note.t(), Note.t()} | {:error, term()}
+  def split_note(%__MODULE__{} = tl, %Note{} = note, split_tick, new_id) do
+    seq_id = note.seq_id
+
+    with {:ok, _} <- note_order_index(tl, seq_id),
+         :ok <- assert_not_tombstone(tl, seq_id),
+         {:ok, before_note, after_note} <- Note.split(note, split_tick, new_id) do
+      {new_seq, tl} = generate(tl)
+      before_note = %{before_note | seq_id: seq_id}
+      after_note = %{after_note | seq_id: new_seq}
+
+      {:ok, idx} = note_order_index(tl, seq_id)
+      {left, right} = Enum.split(tl.note_order, idx + 1)
+
+      tl = %__MODULE__{
+        tl
+        | note_order: left ++ [new_seq | right],
+          seq_map: Map.put(tl.seq_map, new_seq, tl.seq_map[seq_id])
+      }
+
+      {:ok, tl, before_note, after_note}
     end
   end
 
@@ -93,21 +119,38 @@ defmodule Zongzi.Timeline do
           new_index = min(new_index, length(without))
           {left, right} = Enum.split(without, new_index)
           {:ok, %__MODULE__{tl | note_order: left ++ [seq_id | right]}}
-        {:error, _} = err -> err
+
+        {:error, _} = err ->
+          err
       end
     end
   end
 
-  @doc "合并：seq_id_2 变墓碑，seq_id_1 保留。"
-  @spec merge_notes(t(), SeqID.t(), SeqID.t(), ID.t()) :: {:ok, t()} | {:error, term()}
-  def merge_notes(%__MODULE__{} = tl, seq_id_1, seq_id_2, merged_note_id) do
-    with {:ok, _} <- note_order_index(tl, seq_id_1),
-         {:ok, _} <- note_order_index(tl, seq_id_2),
-         :ok <- assert_not_tombstone(tl, seq_id_1),
-         :ok <- assert_not_tombstone(tl, seq_id_2) do
-      tl = %__MODULE__{tl | seq_map: Map.put(tl.seq_map, seq_id_1, merged_note_id),
-                          tombstones: MapSet.put(tl.tombstones, seq_id_2)}
-      {:ok, tl}
+  @doc """
+  合并两个音符。内部调用 `Note.merge/4`，`merged_id` 显式注入。
+
+  seq_id_2 变墓碑，seq_id_1 保留并指向 merged_note_id。
+  返回合并后的 Note（seq_id 继承 note_a.seq_id）。
+  """
+  @spec merge_notes(t(), Note.t(), Note.t(), ID.t()) :: {:ok, t(), Note.t()} | {:error, term()}
+  def merge_notes(%__MODULE__{} = tl, %Note{} = note_a, %Note{} = note_b, merged_id) do
+    s1 = note_a.seq_id
+    s2 = note_b.seq_id
+
+    with {:ok, _} <- note_order_index(tl, s1),
+         {:ok, _} <- note_order_index(tl, s2),
+         :ok <- assert_not_tombstone(tl, s1),
+         :ok <- assert_not_tombstone(tl, s2),
+         {:ok, merged} <- Note.merge(note_a, note_b, merged_id) do
+      merged = %{merged | seq_id: s1}
+
+      tl = %__MODULE__{
+        tl
+        | seq_map: Map.put(tl.seq_map, s1, merged_id),
+          tombstones: MapSet.put(tl.tombstones, s2)
+      }
+
+      {:ok, tl, merged}
     end
   end
 
@@ -116,8 +159,12 @@ defmodule Zongzi.Timeline do
   def delete_note(%__MODULE__{} = tl, seq_id) do
     with {:ok, _} <- note_order_index(tl, seq_id),
          :ok <- assert_not_tombstone(tl, seq_id) do
-      tl = %__MODULE__{tl | seq_map: Map.delete(tl.seq_map, seq_id),
-                          tombstones: MapSet.put(tl.tombstones, seq_id)}
+      tl = %__MODULE__{
+        tl
+        | seq_map: Map.delete(tl.seq_map, seq_id),
+          tombstones: MapSet.put(tl.tombstones, seq_id)
+      }
+
       {:ok, tl}
     end
   end
@@ -131,66 +178,26 @@ defmodule Zongzi.Timeline do
   def gc(%__MODULE__{} = tl, interventions) do
     live_refs =
       interventions
-      |> Enum.flat_map(fn int -> {p, c, n} = int.anchor; [p, c, n] |> Enum.reject(&is_nil/1) end)
+      |> Enum.flat_map(fn int ->
+        {p, c, n} = int.anchor
+        [p, c, n] |> Enum.reject(&is_nil/1)
+      end)
       |> MapSet.new()
+
     unreachable = Enum.filter(tl.tombstones, fn s -> not MapSet.member?(live_refs, s) end)
-    %__MODULE__{tl | note_order: Enum.reject(tl.note_order, &(&1 in unreachable)),
-                   tombstones: Enum.reduce(unreachable, tl.tombstones, &MapSet.delete(&2, &1))}
+
+    %__MODULE__{
+      tl
+      | note_order: Enum.reject(tl.note_order, &(&1 in unreachable)),
+        tombstones: Enum.reduce(unreachable, tl.tombstones, &MapSet.delete(&2, &1))
+    }
   end
-
-  # ---- 旧查询 API（delegate 到 Query）----
-
-  @doc "邻接三元组（含墓碑邻居）。"
-  @spec adjacent(t(), SeqID.t()) ::
-          {:ok, {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}}
-          | {:tombstone, SeqID.t()} | {:error, :not_found}
-  def adjacent(%__MODULE__{} = tl, seq_id) do
-    case Query.status(tl, seq_id) do
-      :missing -> {:error, :not_found}
-      st when st in [:merge_tombstone, :delete_tombstone] -> {:tombstone, seq_id}
-      :active ->
-        case note_order_index(tl, seq_id) do
-          {:ok, idx} ->
-            order = tl.note_order
-            {:ok, {if(idx > 0, do: Enum.at(order, idx - 1)),
-                   Enum.at(order, idx),
-                   Enum.at(order, idx + 1)}}
-          {:error, _} -> {:error, :not_found}
-        end
-    end
-  end
-
-  @doc "2-of-3 exact match。"
-  @spec try_match(t(), {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}) ::
-          {:ok, non_neg_integer()} | {:tombstone, SeqID.t()} | {:error, :not_found}
-  def try_match(%__MODULE__{} = tl, {old_prev, old_current, old_next}) do
-    case adjacent(tl, old_current) do
-      {:ok, {new_prev, _, new_next}} ->
-        m = ((old_prev == new_prev && 1) || 0) + 1 + ((old_next == new_next && 1) || 0)
-        {:ok, m}
-      other -> other
-    end
-  end
-
-  @doc "向一侧跳过墓碑，找最近活跃邻居。thin wrapper over `Query.scan/4`。"
-  @spec nearest_active(t(), SeqID.t(), :prev | :next) ::
-          {:ok, SeqID.t()} | {:error, :no_active_neighbor}
-  def nearest_active(%__MODULE__{} = tl, seq_id, direction)
-      when direction in [:prev, :next] do
-    case Query.scan(tl, seq_id, direction, active_only: true, limit: 1) do
-      [sid] -> {:ok, sid}
-      [] -> {:error, :no_active_neighbor}
-    end
-  end
-
-  @doc "seq_map 成员检查。更推荐用 `Query.status/2`。"
-  @spec seq_map_has?(t(), SeqID.t()) :: boolean()
-  def seq_map_has?(%__MODULE__{seq_map: sm}, seq_id), do: Map.has_key?(sm, seq_id)
 
   # ---- 共享 helper ----
 
   @doc false
-  @spec note_order_index(t(), SeqID.t()) :: {:ok, non_neg_integer()} | {:error, {:not_found, SeqID.t()}}
+  @spec note_order_index(t(), SeqID.t()) ::
+          {:ok, non_neg_integer()} | {:error, {:not_found, SeqID.t()}}
   def note_order_index(%__MODULE__{note_order: order}, seq_id) do
     case Enum.find_index(order, &(&1 == seq_id)) do
       nil -> {:error, {:not_found, seq_id}}

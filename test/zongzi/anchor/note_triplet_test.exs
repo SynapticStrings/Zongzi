@@ -15,11 +15,12 @@ defmodule Zongzi.Anchor.NoteTripletTest do
     {:ok, tl, n1} = Timeline.insert_note(tl, n1)
     {:ok, tl, n2} = Timeline.insert_note(tl, n2)
     {:ok, tl, n3} = Timeline.insert_note(tl, n3)
-    {:ok, tl, {n1.seq_id, n2.seq_id, n3.seq_id}}
+    {:ok, tl, {n1.seq_id, n2.seq_id, n3.seq_id}, {n1, n2, n3}}
   end
 
   defp build_note(start_tick) do
     {:ok, key} = Key.TwelveET.new(60)
+
     Note.new(%{
       id: ID.generate_id("Note_"),
       start_tick: start_tick,
@@ -42,7 +43,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
 
   describe "3/3 完全匹配" do
     test "无变更时返回 :preserve" do
-      {:ok, tl, {a, b, c}} = build_timeline_3()
+      {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
       assert NoteTriplet.rebase(int, tl, ctx()) == {:ok, :preserve}
     end
@@ -50,17 +51,17 @@ defmodule Zongzi.Anchor.NoteTripletTest do
 
   describe "2/3 → rebase" do
     test "split 后旧锚重新捕获三元组" do
-      {:ok, tl, {a, b, c}} = build_timeline_3()
+      {:ok, tl, {a, b, c}, {_n1, n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
-      {:ok, tl, _b, new_seq} = Timeline.split_note(tl, b, 240)
+      {:ok, tl, _before, after_note} = Timeline.split_note(tl, n2, 720, "new_split_id")
       assert {:ok, {:rebase, updated}} = NoteTriplet.rebase(int, tl, ctx())
-      assert updated.anchor == {a, b, new_seq}
+      assert updated.anchor == {a, n2.seq_id, after_note.seq_id}
     end
   end
 
   describe "1/3 → conflict" do
     test "drag 后只剩 current 匹配" do
-      {:ok, tl, {a, b, c}} = build_timeline_3()
+      {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.drag_note(tl, b, 2)
       assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :adjacency_lost}
@@ -69,16 +70,16 @@ defmodule Zongzi.Anchor.NoteTripletTest do
 
   describe "tombstone → merged_away" do
     test "merge 后目标 seq_id 变成墓碑" do
-      {:ok, tl, {_a, b, c}} = build_timeline_3()
+      {:ok, tl, {_a, b, c}, {_n1, n2, n3}} = build_timeline_3()
       int = build_intervention({b, c, nil})
-      {:ok, tl} = Timeline.merge_notes(tl, b, c, "merged_id")
+      {:ok, tl, _merged} = Timeline.merge_notes(tl, n2, n3, "merged_id")
       assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :merged_away}
     end
   end
 
   describe "delete tombstone / missing → relocate" do
     test "delete 后 push 到活跃邻居" do
-      {:ok, tl, {a, b, c}} = build_timeline_3()
+      {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       # 锚在 b 上，删除 b
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.delete_note(tl, b)
@@ -89,16 +90,18 @@ defmodule Zongzi.Anchor.NoteTripletTest do
     end
 
     test "delete 后 prev 方向 push" do
-      {:ok, tl, {a, b, c}} = build_timeline_3()
+      {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.delete_note(tl, b)
+
       assert {:ok, {:relocate, _relocated, meta}} =
                NoteTriplet.rebase(int, tl, ctx(orphan_direction: :prev))
+
       assert meta.to == a
     end
 
     test "孤儿找不到邻居 → conflict" do
-      {:ok, tl, {a, _b, _c}} = build_timeline_3()
+      {:ok, tl, {a, _b, _c}, _notes} = build_timeline_3()
       int = build_intervention({a, 99999, nil})
       assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :adjacency_lost}
     end

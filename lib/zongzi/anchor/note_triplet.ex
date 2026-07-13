@@ -1,19 +1,20 @@
 defmodule Zongzi.Anchor.NoteTriplet do
   @moduledoc """
-  基于 NoteTriplet 的结构锚点策略。
+  基于 NoteTriplet 的结构锚点策略。默认策略。
 
   三元组 `{prev_seq, current_seq, next_seq}` 锚定 intervention 在 Timeline 中的位置。
   rebase 是纯函数——只判结构死活，不碰 snapshot（语义有效性留给 render 时 resolve）。
 
   ## 决策表
 
-  | Timeline.try_match | 输出 |
-  |---|---|
-  | `{:ok, 3}` | `{:ok, :preserve}` |
-  | `{:ok, 2}` | `{:ok, {:rebase, updated_intervention}}` |
-  | `{:ok, 0..1}` | `{:conflict, :adjacency_lost}` |
-  | merge tombstone | `{:conflict, :merged_away}` |
-  | delete tombstone / missing | `{:ok, {:relocate, int, meta}}` 或 conflict |
+  | current status | match | 输出 |
+  |---|---|---|
+  | active | 3/3 | `{:ok, :preserve}` |
+  | active | 2/3 | `{:ok, {:rebase, updated}}` |
+  | active | 1/3 | `{:conflict, :adjacency_lost}` |
+  | merge_tombstone | — | `{:conflict, :merged_away}` |
+  | delete_tombstone | — | relocate 到最近活跃邻居 |
+  | missing | — | relocate or conflict |
 
   ## Context 键
 
@@ -22,60 +23,72 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
   @behaviour Zongzi.Anchor.Strategy
 
-  alias Zongzi.{Intervention, Timeline, Anchor.Context}
+  alias Zongzi.{Intervention, Timeline}
+  alias Zongzi.Timeline.Query
 
   @impl true
-  def rebase(intervention, tl, context \\ Context.new())
+  def rebase(intervention, tl, context \\ Zongzi.Anchor.Context.new())
 
   def rebase(
-        %Intervention{anchor: {_, current, _}} = intervention,
+        %Intervention{anchor: {old_prev, current, old_next}} = int,
         %Timeline{} = tl,
         context
       ) do
-    case Timeline.try_match(tl, intervention.anchor) do
-      {:ok, 3} ->
-        {:ok, :preserve}
+    case Query.status(tl, current) do
+      :missing ->
+        do_relocate(int, tl, current, context)
 
-      {:ok, 2} ->
-        case Timeline.adjacent(tl, current) do
-          {:ok, new_triplet} ->
-            {:ok, {:rebase, %{intervention | anchor: new_triplet}}}
+      :merge_tombstone ->
+        {:conflict, :merged_away}
 
-          _ ->
-            {:conflict, :adjacency_lost}
+      :delete_tombstone ->
+        do_relocate(int, tl, current, context)
+
+      :active ->
+        # neighborhood returns raw neighbors from note_order (active_only: false)
+        nb = Query.neighborhood(tl, current, active_only: false, count: 1)
+
+        new_prev =
+          case nb.left do
+            [%{seq_id: s}] -> s
+            [] -> nil
+          end
+
+        new_next =
+          case nb.right do
+            [%{seq_id: s}] -> s
+            [] -> nil
+          end
+
+        match_count =
+          1 +
+            if(old_prev == new_prev, do: 1, else: 0) +
+            if old_next == new_next, do: 1, else: 0
+
+        case match_count do
+          3 -> {:ok, :preserve}
+          2 -> {:ok, {:rebase, %{int | anchor: {new_prev, current, new_next}}}}
+          _ -> {:conflict, :adjacency_lost}
         end
-
-      {:ok, _} ->
-        {:conflict, :adjacency_lost}
-
-      {:tombstone, _} ->
-        if Timeline.seq_map_has?(tl, current) do
-          {:conflict, :merged_away}
-        else
-          do_relocate(intervention, tl, current, context)
-        end
-
-      {:error, :not_found} ->
-        do_relocate(intervention, tl, current, context)
     end
   end
 
-  defp do_relocate(intervention, tl, current, context) do
+  defp do_relocate(int, tl, current, context) do
     direction = Map.get(context, :orphan_direction, :next)
 
-    case Timeline.nearest_active(tl, current, direction) do
-      {:ok, nearest} ->
-        case Timeline.Query.scrub_triplet(tl, nearest) do
+    case Query.scan(tl, current, direction, active_only: true, limit: 1) do
+      [nearest] ->
+        case Query.scrub_triplet(tl, nearest) do
           {:ok, triplet} ->
             {:ok,
-             {:relocate, %{intervention | anchor: triplet},
+             {:relocate, %{int | anchor: triplet},
               %{from: current, to: nearest, method: :nearest_active}}}
 
           {:error, :not_active} ->
             {:conflict, :adjacency_lost}
         end
 
-      {:error, :no_active_neighbor} ->
+      [] ->
         {:conflict, :adjacency_lost}
     end
   end
