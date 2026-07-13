@@ -9,6 +9,36 @@ Zongzi 是：
 
 ## 核心架构
 
+```mermaid
+sequenceDiagram
+    actor User
+    participant Zongzi
+    participant Engine as Engine (implementation agnostic)
+
+    User->>Zongzi: Score
+    Zongzi->>Engine: render(Request, interventions=[])
+    Engine-->>Zongzi: Artifact₀
+    Zongzi-->>User: Artifact₀
+
+    loop 对抗轮
+        User->>Zongzi: 挂/撤 interventions<br/>和/或 编辑 notes
+        Zongzi->>Zongzi: Timeline 更新
+        Zongzi->>Zongzi: Anchor 重新 rebase
+        Zongzi-->>User: 结构 conflicts（若有）
+
+        Zongzi->>Zongzi: Declaration.scope → 切窗
+        Zongzi->>Engine: render(Request + rebased interventions)
+        Note over Engine: projection → Declaration.resolve → apply/conflict
+        Engine-->>Zongzi: Artifactₙ ± semantic conflicts
+        Zongzi-->>User: Artifactₙ + 语义 conflicts（若有）
+    end
+
+    opt 清理
+        User->>Zongzi: 确认无 conflict
+        Zongzi->>Zongzi: Timeline.gc
+    end
+```
+
 ### 引擎契约：behaviour，不是 pipeline
 
 zongzi 不跑渲染——只定义引擎必须遵守的 `@callback`。内部实现可以是复杂 DAG、
