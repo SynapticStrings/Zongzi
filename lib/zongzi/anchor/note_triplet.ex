@@ -65,7 +65,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
     case Timeline.nearest_active(tl, current, direction) do
       {:ok, nearest} ->
-        case Timeline.scrub_triplet(tl, nearest) do
+        case Timeline.Query.scrub_triplet(tl, nearest) do
           {:ok, triplet} ->
             {:ok,
              {:relocate, %{intervention | anchor: triplet},

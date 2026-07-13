@@ -164,7 +164,7 @@ defmodule Zongzi.Score.Note do
 
   @doc "移除元数据"
   # 应用于插件生命周期结束或序列化
-  @spec remove_metadata(t(), :all | [atom()]) :: {:ok, t()}
+  @spec remove_metadata(t(), :all | [binary()]) :: {:ok, t()}
   def remove_metadata(note, :all), do: update(note, metadata: %{})
 
   def remove_metadata(note, keys) when is_list(keys) do

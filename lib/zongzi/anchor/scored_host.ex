@@ -52,8 +52,8 @@ defmodule Zongzi.Anchor.ScoredHost do
     scan_limit = Keyword.get(opts, :scan_limit, 4)
 
     candidates =
-      Timeline.scan(tl, focus, :prev, active_only: true, limit: scan_limit) ++
-        Timeline.scan(tl, focus, :next, active_only: true, limit: scan_limit)
+      Timeline.Query.scan(tl, focus, :prev, active_only: true, limit: scan_limit) ++
+        Timeline.Query.scan(tl, focus, :next, active_only: true, limit: scan_limit)
 
     scored = score_candidates(candidates, tl, context)
 
@@ -80,7 +80,7 @@ defmodule Zongzi.Anchor.ScoredHost do
   defp do_scored_relocate(intervention, tl, current, context) do
     case choose_host(current, tl, context, []) do
       {:ok, best, meta} ->
-        case Timeline.scrub_triplet(tl, best) do
+        case Timeline.Query.scrub_triplet(tl, best) do
           {:ok, triplet} ->
             {:ok,
              {:relocate, %{intervention | anchor: triplet},
