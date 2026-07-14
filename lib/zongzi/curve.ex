@@ -1,19 +1,26 @@
 defmodule Zongzi.Curve do
   @moduledoc """
-  曲线工具模块。
+  曲线相关工具的**残留入口**（非对抗循环必经路径）。
 
-  灵感来源于 Cadencii 。
+  ## 边界（2026-07）
 
-  用一句话描述曲线，就是包括多个 Chunk 的一条 Curve 用于 Track 的特定 Cluster 。
-  这里将 Curve 与 Cluster 分离开的原因在于 Cluster
-  允许重叠，其经过处理（重叠片段以最新的为准）变成一条 Curve 。
+  产品心智里，曲线参数 intervention 的数据是：
 
-  ## 曲线的来源
+      控制点 + 边界 + 原始值（原始值进 Intervention.snapshot）
 
-  ## 曲线的参数化
+  **用户操作面**（手绘、直线/曲线工具、重叠 Cluster 合成、部分清除）
+  计划留在编辑器 / Host 侧，**不进 zongzi 核**。
+
+  本命名空间下现有：
+
+  - `Curve.ControlPoint` / `Curve.Chunk` — 轻量数据结构
+  - `Curve.Adapter` + Bezier / CatmullRom — 按 tick 序列采样（rasterize）
+
+  不承诺：Cadencii 式 Cluster→Curve 合成管线、编辑 UX、与 Tempo 曲线的一体化。
+  需要高性能栅格化时，下游用 NIF 替换 Adapter 即可。
+
+  对抗循环请读 `Intervention` + `Anchor` + `Engine`，不要从本模块起步。
   """
 
-  # 提供直线、曲线、手绘工具以及清除/部分清除的工具（type）
-  # 最后，也包括将曲线对象栅格化的功能（可能放到 Score 或作为聚合操作）
-  # 可能也是作为行为来声明，因为效率真的不如 Rust NIF
+  # 历史注释保留意图：工具型采样，不是编辑器产品面。
 end

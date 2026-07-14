@@ -18,6 +18,11 @@ defmodule Zongzi.Anchor do
   2. **渲染时** — 各引擎 `render` → `Declaration.resolve/2`
      snapshot 比对 → delta apply / conflict
 
+  ## 谁调用
+
+  **Host**（库外，如 Equinox）在 Timeline 写操作落地后调用本模块，
+  并注入 `Anchor.Context`（Note 快照等）。zongzi 不实现 Host。
+
   ## 交互契约
 
       # edit batch ───────────────────────────────────┐
