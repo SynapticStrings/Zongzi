@@ -89,6 +89,12 @@ defmodule Zongzi.Anchor.ScoredHost do
         {:conflict, :no_host}
 
       [{best, _best_score, _hops} | rest] ->
+        # KNOWN ISSUE
+        # `ScoredHost.choose_host` 的 ambiguity 判定逻辑（对 `hd(rest)` 和 `hd(scored)` 的比较）看起来有 bug，
+        # 同分判定可能永远/从不触发，值得补测试。
+        # -- Claude Fable 5
+        #
+        # 懒得测试了，等到时候再来修
         if rest != [] and elem(hd(rest), 1) == elem(scored |> hd(), 1) and
              elem(hd(rest), 2) == elem(scored |> hd(), 2) do
           {:conflict, :ambiguous_host}

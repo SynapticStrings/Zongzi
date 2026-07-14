@@ -38,9 +38,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
   alias Zongzi.{Intervention, Timeline}
   alias Zongzi.Anchor.TripletMatch
-  alias Zongzi.Timeline.{Query, SeqID}
-
-  @type triplet :: {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}
+  alias Zongzi.Timeline.Query
 
   @impl true
   def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = tl, ctx) do

@@ -6,6 +6,8 @@ defmodule Zongzi.Anchor.TripletMatch do
   alias Zongzi.{Intervention, Timeline}
   alias Zongzi.Timeline.{Query, SeqID}
 
+  @type triplet :: {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}
+
   @doc """
   使用当前三元组邻接与旧锚比对，返回 `match_count` 和新锚候选。
 
@@ -16,7 +18,7 @@ defmodule Zongzi.Anchor.TripletMatch do
   - `{:conflict, reason}`
   """
   @spec match(Intervention.t(), Timeline.t()) ::
-          {:active, pos_integer(), {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}}
+          {:active, pos_integer(), triplet()}
           | {:tombstone, :merge | :delete}
           | {:tombstone, :delete, SeqID.t() | nil, SeqID.t() | nil}
           | {:conflict, term()}
@@ -56,7 +58,6 @@ defmodule Zongzi.Anchor.TripletMatch do
   end
 
   @doc "三元组依赖的 SeqID 列表（gc 用）。"
-  @spec referenced_seqs({SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}) :: [SeqID.t()]
-  @spec referenced_seqs({term() | nil, term(), term() | nil}) :: [term()]
+  @spec referenced_seqs(triplet()) :: [SeqID.t()]
   def referenced_seqs({a, b, c}), do: Enum.reject([a, b, c], &is_nil/1)
 end
