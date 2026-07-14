@@ -16,7 +16,7 @@ defmodule Zongzi.Intervention.OnRebaseTest do
     @impl true
     def resolve(_int, _proj), do: {:ok, :stub}
 
-    @impl true
+    # @impl true
     def on_rebase(%{anchor: {_prev, _cur, _next}} = int, %{decision: :rebase}, _tl) do
       child_a = %{int | id: int.id <> "_a", payload: %{segment: :before}}
       child_b = %{int | id: int.id <> "_b", payload: %{segment: :after}}

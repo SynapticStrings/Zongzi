@@ -168,7 +168,11 @@ defmodule Zongzi.AnchorTest do
     @impl true
     def referenced_seqs(%{anchor: {p, c, n}}), do: Enum.reject([p, c, n], &is_nil/1)
     def referenced_seqs(_), do: []
+
+    @impl true
     def rebase(_int, _tl, _ctx), do: {:ok, :preserve}
+
+    @impl true
     def choose_host(_f, _tl, _ctx, _opts), do: {:conflict, :no_host}
   end
 
