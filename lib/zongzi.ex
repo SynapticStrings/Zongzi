@@ -7,9 +7,9 @@ defmodule Zongzi do
   - **Score** — Note / Key / Tempo / TimeSig / Grid / RecordMap / Slicer
   - **Timeline** — 序列真相（写）+ `Timeline.Query`（读原语）
   - **Anchor** — 编辑后结构 rebase（`rebase_all` / Strategy / NoteTriplet / ScoredHost）
-  - **Windowing** — post-rebase 瞬态切片（`Strategy.window/1`、默认 `RestSplit3Beats`）
+  - **Windowing** — post-rebase 瞬态 `Segment`（`Strategy.window/1`、默认 `RestSplit3Beats`）
   - **Intervention** — 可改的上游生成结果之形状 + `Declaration` 语义契约
-  - **Engine** — `check_*` / 可选 `render_*`（不跑引擎）
+  - **Engine** — `check/1` / 可选 `render/1`，只吃 `[Segment]`（不跑引擎）
 
   ## 库外（Host / 引擎 / 编辑器）
 

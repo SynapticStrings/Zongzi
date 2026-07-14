@@ -29,7 +29,7 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
 
   @behaviour Zongzi.Windowing.Strategy
 
-  alias Zongzi.Windowing.{Context, Slice}
+  alias Zongzi.Windowing.{Context, Segment}
   alias Zongzi.Timeline.Query
   alias Zongzi.Intervention
 
@@ -46,15 +46,15 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
         |> merge_spans(threshold, beat, ctx)
         |> apply_cut_ownership(threshold, beat)
 
-      slices =
+      segments =
         Enum.reduce_while(blocks, {:ok, []}, fn block, {:ok, acc} ->
-          case Slice.new(block.start, block.end, Enum.uniq(block.seq_ids)) do
-            {:ok, slice} -> {:cont, {:ok, [slice | acc]}}
+          case Segment.new(block.start, block.end, Enum.uniq(block.seq_ids)) do
+            {:ok, seg} -> {:cont, {:ok, [seg | acc]}}
             {:error, _} = err -> {:halt, err}
           end
         end)
 
-      case slices do
+      case segments do
         {:ok, list} -> {:ok, Enum.reverse(list)}
         {:error, _} = err -> err
       end

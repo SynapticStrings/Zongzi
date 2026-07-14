@@ -1,6 +1,6 @@
 defmodule Zongzi.Windowing.WholeTrack do
   @moduledoc """
-  恒将全部 active note 收成**一个** Slice（UTAU / 无 phrase cache 友好）。
+  恒将全部 active note 收成**一个** Segment（UTAU / 无 phrase cache 友好）。
 
   忽略 rest 阈值；仍会把带 `scope: {s,e}` 的 intervention 并入 tick 范围。
   无 active note 且无 scope 时返回空列表。
@@ -8,7 +8,7 @@ defmodule Zongzi.Windowing.WholeTrack do
 
   @behaviour Zongzi.Windowing.Strategy
 
-  alias Zongzi.Windowing.{Context, Slice}
+  alias Zongzi.Windowing.{Context, Segment}
   alias Zongzi.Timeline.Query
 
   @impl true
@@ -38,7 +38,7 @@ defmodule Zongzi.Windowing.WholeTrack do
         end_tick = spans |> Enum.map(&elem(&1, 1)) |> Enum.max()
         members = spans |> Enum.flat_map(&elem(&1, 2)) |> Enum.uniq()
 
-        case Slice.new(start_tick, end_tick, members) do
+        case Segment.new(start_tick, end_tick, members) do
           {:ok, slice} -> {:ok, [slice]}
           {:error, _} = err -> err
         end

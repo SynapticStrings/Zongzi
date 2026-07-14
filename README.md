@@ -15,8 +15,8 @@ Zongzi 是：
 | Timeline 写路径 + Query 读原语 | 用户曲线绘制、重叠合成、清除工具（编辑器操作面） |
 | Anchor 结构 rebase（`rebase_all` / Strategy） | Declaration 的具体 channel 实现（接模型后再落） |
 | Intervention 数据形状 + Declaration **契约** | Engine 真实现、artifact 形状、引擎错误细节 |
-| Engine **契约**（`check_*` + 可选 `render_*`） | 完整 Windowing 策略还可扩展 |
-| Windowing **契约**（`Strategy.window/1`）+ Slice 类型 | 邻片 pad 打穿时的归属/缓存策略（Host/引擎） |
+| Engine **契约**（`check` / 可选 `render`，只吃 `[Segment]`） | 编辑器操作面、phrase 缓存实现 |
+| Windowing **契约**（`Strategy.window/1` → `[Segment]`） | 邻片 pad 归属/缓存（Host/引擎） |
 | Slicer（note-only 旧工具） | cross-channel invalidation 策略 |
 
 **Host** 不是 zongzi 模块，而是**任意**库外编排者（编辑器 Session、测试 harness、CLI…）。  
@@ -35,9 +35,9 @@ sequenceDiagram
 
     User->>Host: Score / 编辑
     Host->>Zongzi: Timeline 写操作
-    Host->>Engine: render(Request, interventions=[])
-    Engine-->>Host: Artifact₀
-    Host-->>User: Artifact₀
+    Host->>Engine: check / render（segments 常来自 WholeTrack）
+    Engine-->>Host: artifact₀
+    Host-->>User: artifact₀
 
     loop 对抗轮
         User->>Host: 挂/撤 interventions 和/或 编辑 notes
@@ -46,10 +46,10 @@ sequenceDiagram
         Zongzi-->>Host: survived + 结构 conflicts
         Host-->>User: 结构 conflicts（若有）
 
-        Note over Host: Strategy.window/1 → [Slice]（见 decisions/windowing-post-rebase）
-        Host->>Engine: check_whole / check_partial
+        Note over Host: Strategy.window/1 → [Segment]
+        Host->>Engine: check(%{segments: ...})
         Engine-->>Host: check_artifact ± semantic conflicts
-        Host->>Engine: render_whole / render_partial（可选，重）
+        Host->>Engine: render(%{segments: ...})（可选，重）
         Engine-->>Host: render_artifact
         Host-->>User: check/render 结果
     end

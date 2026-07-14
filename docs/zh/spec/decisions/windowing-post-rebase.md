@@ -8,16 +8,16 @@
 
 ```text
 Timeline  = 「谁和谁是邻居」（持久指称）
-Slice     = 「这一锅 [start,end) + seq_ids」（瞬态批处理）
+Segment     = 「这一锅 [start,end) + seq_ids」（瞬态批处理）
 ```
 
 ## 契约
 
 ```elixir
 @callback Windowing.Strategy.window(Context.t()) ::
-  {:ok, [Slice.t()]} | {:error, term()}
+  {:ok, [Segment.t()]} | {:error, term()}
 
-# Slice: 半开 [start_tick, end_tick) + seq_ids
+# Segment: 半开 [start_tick, end_tick) + seq_ids
 # Context: timeline + notes_by_seq + 可选 time_sig/tempo/interventions/opts
 ```
 
@@ -32,7 +32,7 @@ Slice     = 「这一锅 [start,end) + seq_ids」（瞬态批处理）
 ```text
 edit → Timeline → Anchor.rebase_all
   → Strategy.window(survived interventions)
-  → Engine.check_* →（可选）render_*
+  → Engine.check →（可选）render
   → 可选 Timeline.gc
 ```
 
@@ -41,13 +41,13 @@ edit → Timeline → Anchor.rebase_all
 ## Engine（与分窗正交）
 
 ```elixir
-@callback check_whole/1            # 必选
-@callback check_partial/1          # optional
-@callback render_whole/1           # optional
-@callback render_partial/1         # optional
+@callback check(%{required(:segments) => [Segment.t()], ...})
+@callback render(%{required(:segments) => [Segment.t()], ...})  # optional
 ```
 
-check 轻（语义 resolve、参数约束）；render 重（终态产物）。artifact 分层。
+无 whole/partial 分回调：整轨 = `WholeTrack` → 通常一个 `Segment`。  
+check 轻；render 重。artifact 分层。`Segment` 是新瞬态闭包，不是历史持久短语实体。
+
 
 ## 边界归属
 

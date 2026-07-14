@@ -5,7 +5,8 @@ defmodule Zongzi.EngineContractTest do
     @behaviour Zongzi.Engine
 
     @impl true
-    def check_whole(req) do
+    def check(req) do
+      segments = Map.fetch!(req, :segments)
       ivs = Map.get(req, :interventions, [])
       params = Map.get(req, :params, %{})
 
@@ -13,6 +14,7 @@ defmodule Zongzi.EngineContractTest do
         {:ok,
          %{
            phase: :check,
+           n_segments: length(segments),
            resolved: ivs,
            conflicts: [],
            params: params
@@ -29,55 +31,52 @@ defmodule Zongzi.EngineContractTest do
     end
   end
 
-  defmodule FullPhraseEngine do
+  defmodule FullEngine do
     @behaviour Zongzi.Engine
 
     @impl true
-    def check_whole(req), do: {:ok, %{phase: :check, coverage: :whole, req_keys: Map.keys(req)}}
-
-    @impl true
-    def check_partial(%{slices: slices} = req) when is_list(slices) do
-      {:ok,
-       %{phase: :check, coverage: :partial, n_slices: length(slices), req_keys: Map.keys(req)}}
+    def check(%{segments: segments}) when is_list(segments) do
+      {:ok, %{phase: :check, n_segments: length(segments)}}
     end
 
     @impl true
-    def render_whole(_req), do: {:ok, %{phase: :render, coverage: :whole, audio: :stub}}
-
-    @impl true
-    def render_partial(%{slices: slices}) when is_list(slices) do
-      {:ok, %{phase: :render, coverage: :partial, n_slices: length(slices), audio: :stub}}
+    def render(%{segments: segments}) when is_list(segments) do
+      {:ok, %{phase: :render, n_segments: length(segments), audio: :stub}}
     end
   end
 
-  alias Zongzi.Windowing.Slice
+  alias Zongzi.Windowing.Segment
 
-  test "check-only engine: optional callbacks not required" do
-    assert function_exported?(CheckOnlyEngine, :check_whole, 1)
-    refute function_exported?(CheckOnlyEngine, :render_whole, 1)
-    refute function_exported?(CheckOnlyEngine, :check_partial, 1)
+  test "check-only: render optional" do
+    assert function_exported?(CheckOnlyEngine, :check, 1)
+    refute function_exported?(CheckOnlyEngine, :render, 1)
 
-    assert {:ok, %{phase: :check, conflicts: []}} =
-             CheckOnlyEngine.check_whole(%{interventions: [], params: %{energy: 0.5}})
+    {:ok, seg} = Segment.new(0, 480, [1])
+
+    assert {:ok, %{phase: :check, n_segments: 1, conflicts: []}} =
+             CheckOnlyEngine.check(%{segments: [seg], interventions: [], params: %{energy: 0.5}})
   end
 
-  test "check-only engine: invalid non-intervention param" do
+  test "invalid params" do
+    {:ok, seg} = Segment.new(0, 480, [1])
+
     assert {:error, {:invalid_param, {:energy, 2}}} =
-             CheckOnlyEngine.check_whole(%{params: %{energy: 2}})
+             CheckOnlyEngine.check(%{segments: [seg], params: %{energy: 2}})
   end
 
-  test "full engine: check artifact is not render artifact" do
-    {:ok, slice} = Slice.new(0, 480, [1])
+  test "check artifact is not render artifact" do
+    {:ok, a} = Segment.new(0, 480, [1])
+    {:ok, b} = Segment.new(1000, 2000, [2])
 
-    assert {:ok, %{phase: :check, coverage: :partial, n_slices: 1}} =
-             FullPhraseEngine.check_partial(%{slices: [slice]})
+    assert {:ok, %{phase: :check, n_segments: 2}} =
+             FullEngine.check(%{segments: [a, b]})
 
-    assert {:ok, %{phase: :render, coverage: :partial, audio: :stub}} =
-             FullPhraseEngine.render_partial(%{slices: [slice]})
+    assert {:ok, %{phase: :render, n_segments: 2, audio: :stub}} =
+             FullEngine.render(%{segments: [a, b]})
   end
 
-  test "full engine: whole path" do
-    assert {:ok, %{phase: :check, coverage: :whole}} = FullPhraseEngine.check_whole(%{})
-    assert {:ok, %{phase: :render, audio: :stub}} = FullPhraseEngine.render_whole(%{})
+  test "whole track is just one segment" do
+    {:ok, whole} = Segment.new(0, 10_000, [1, 2, 3])
+    assert {:ok, %{n_segments: 1}} = FullEngine.check(%{segments: [whole]})
   end
 end

@@ -4,7 +4,7 @@
 
 | 文件 | 一句话 |
 |---|---|
-| [slicer-is-projection.md](slicer-is-projection.md) | Slicer/切片输出是单向投影，非持久实体 |
+| [slicer-is-projection.md](slicer-is-projection.md) | Segment/切片输出是单向投影，非持久实体 |
 | [transient-render-closure.md](transient-render-closure.md) | 渲染闭包瞬态；干预不绑在窗身份上 |
 | [windowing-post-rebase.md](windowing-post-rebase.md) | 分窗在结构 rebase 之后；Strategy + 默认三拍 |
 | [control-points-authoritative.md](control-points-authoritative.md) | 曲线控制点为真源，栅格化是缓存 |
