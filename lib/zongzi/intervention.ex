@@ -50,6 +50,7 @@ defmodule Zongzi.Intervention do
     :payload,
     :snapshot,
     :scope,
-    strategy: nil
+    strategy: nil,
+    declaration: nil
   ]
 end

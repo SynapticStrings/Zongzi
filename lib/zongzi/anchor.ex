@@ -70,25 +70,49 @@ defmodule Zongzi.Anchor do
     default_strategy = Keyword.get(opts, :default_strategy, Zongzi.Anchor.NoteTriplet)
 
     interventions
-    |> Enum.map(fn int ->
+    |> Enum.flat_map(fn int ->
       strategy = int.strategy || default_strategy
-      {int, strategy.rebase(int, timeline, context)}
+
+      case strategy.rebase(int, timeline, context) do
+        {:ok, :preserve} ->
+          meta = %{decision: :preserve, old_anchor: int.anchor, new_anchor: int.anchor}
+          apply_on_rebase(int, meta, timeline)
+
+        {:ok, {:rebase, updated}} ->
+          meta = %{decision: :rebase, old_anchor: int.anchor, new_anchor: updated.anchor}
+          apply_on_rebase(updated, meta, timeline)
+
+        {:ok, {:relocate, updated, _m}} ->
+          meta = %{decision: :relocate, old_anchor: int.anchor, new_anchor: updated.anchor}
+          apply_on_rebase(updated, meta, timeline)
+
+        {:conflict, reason} ->
+          [{:conflict, {int, reason}}]
+      end
     end)
     |> Enum.reduce(%{survived: [], conflicts: []}, fn
-      {int, {:ok, :preserve}}, acc ->
+      {:ok, int}, acc ->
         %{acc | survived: [int | acc.survived]}
 
-      {_int, {:ok, {:rebase, updated}}}, acc ->
-        %{acc | survived: [updated | acc.survived]}
-
-      {_int, {:ok, {:relocate, updated, _meta}}}, acc ->
-        %{acc | survived: [updated | acc.survived]}
-
-      {int, {:conflict, reason}}, acc ->
+      {:conflict, {int, reason}}, acc ->
         %{acc | conflicts: [{int, reason} | acc.conflicts]}
     end)
     |> then(fn %{survived: s, conflicts: c} ->
       %{survived: Enum.reverse(s), conflicts: Enum.reverse(c)}
     end)
+  end
+
+  defp apply_on_rebase(int, meta, timeline) do
+    decl = int.declaration
+
+    if decl && function_exported?(decl, :on_rebase, 3) do
+      case decl.on_rebase(int, meta, timeline) do
+        {:ok, updated} -> [{:ok, updated}]
+        {:split, children} -> Enum.map(children, &{:ok, &1})
+        {:conflict, reason} -> [{:conflict, {int, {:on_rebase_conflict, reason}}}]
+      end
+    else
+      [{:ok, int}]
+    end
   end
 end
