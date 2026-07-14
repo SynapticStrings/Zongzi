@@ -31,4 +31,4 @@ snapshot 优于输入指纹：输入变了但 base 投影不变 → 不应判死
 ## 非目标
 
 - 不规定 UI 如何展示 conflict。  
-- 不规定 History 条目粒度（Host）。
+- 不规定 History 条目粒度（Caller）。

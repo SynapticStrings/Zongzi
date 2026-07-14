@@ -2,6 +2,8 @@ defmodule Zongzi.Anchor.ScoredHost do
   @moduledoc """
   多候选打分的孤儿归宿策略。
 
+  ScoredHost 里的 host 为孤儿重定位时的新 focus seq 。
+
   与 `NoteTriplet` 的区别：relocate 时不单向找最近邻居，而是
   向两侧各扫 N 个候选，按领域规则打分，择优落户。
 

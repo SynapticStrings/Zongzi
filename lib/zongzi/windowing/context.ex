@@ -16,7 +16,7 @@ defmodule Zongzi.Windowing.Context do
     - `:beat_ticks` — 显式一拍 tick 数（覆盖从拍号/假定推导）
     - `:extra` — 策略私货
 
-  Host 负责在 `Anchor.rebase_all` 之后组装本结构。
+  Caller 负责在 `Anchor.rebase_all` 之后组装本结构。
   """
 
   alias Zongzi.{Timeline, Intervention, Score.Note, Score.TimeSigMap, Score.TempoMap}

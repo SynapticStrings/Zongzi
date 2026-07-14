@@ -7,7 +7,7 @@
 
 片 B 的 pad_left / scope 打进片 A 的 tail 时，正确性与缓存如何处理？
 
-## 常见选项（Host/引擎）
+## 常见选项（Caller/引擎）
 
 1. 粘 A+B  
 2. 邻片 context 进入 hash（改 B 左缘会使 A 失效）  

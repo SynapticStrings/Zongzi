@@ -11,9 +11,9 @@ defmodule Zongzi do
   - **Intervention** — 可改的上游生成结果之形状 + `Declaration` 语义契约
   - **Engine** — `check/1` / 可选 `render/1`，只吃 `[Segment]`（不跑引擎）
 
-  ## 库外（Host / 引擎 / 编辑器）
+  ## 库外（Caller / 引擎 / 编辑器）
 
-  - **Host** — 任意编排者：持 Note 表、组 Context、串联 rebase → window → check/render、上浮 conflict
+  - **Caller** — 任意编排者：持 Note 表、组 Context、串联 rebase → window → check/render、上浮 conflict
   - 编辑器操作面（曲线手绘等）— 不进核
   - Declaration 具体 channel、真模型推理 — 引擎或旁路适配层
 

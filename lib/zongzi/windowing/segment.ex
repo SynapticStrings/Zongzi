@@ -3,7 +3,7 @@ defmodule Zongzi.Windowing.Segment do
   引擎 check/render 消费的**瞬态批处理闭包**（本轮「这一锅」）。
 
   时间轴为左闭右开 `[start_tick, end_tick)`。权威成员仅包括
-  `seq_ids`（active SeqID），`note_ids` 若需要由 Host 派生。
+  `seq_ids`（active SeqID），`note_ids` 若需要由 Caller 派生。
 
   由 `Windowing.Strategy.window/1` 产出。
   """

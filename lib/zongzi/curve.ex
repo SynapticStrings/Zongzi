@@ -9,7 +9,7 @@ defmodule Zongzi.Curve do
       控制点 + 边界 + 原始值（原始值进 Intervention.snapshot）
 
   **用户操作面**（手绘、直线/曲线工具、重叠 Cluster 合成、部分清除）
-  计划留在编辑器 / Host 侧，**不进 zongzi 核**。
+  计划留在编辑器 / Caller 侧，**不进 zongzi 核**。
 
   本命名空间下现有：
 

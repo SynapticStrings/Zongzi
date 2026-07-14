@@ -11,7 +11,7 @@ Zongzi 及基于其开发的 SVS 编辑器的显著不同，是出发点是**跨
 - 结构存活（编辑后）与语义存活（渲染时）分阶段。
 - 曲线/timing 类：控制点（或偏移）+ 边界 + 原始值；原始值进 snapshot。
 - G2P 类：挂 note / 序列，不假装成曲线。
-- Host 编排；zongzi 不假装自己是编辑器。
+- Caller 编排；zongzi 不假装自己是编辑器。
 
 ## Golden Scenarios（骨架）
 

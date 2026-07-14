@@ -20,8 +20,8 @@ defmodule Zongzi.Anchor do
 
   ## 谁调用
 
-  **Host**（库外编排者）在 Timeline 写操作落地后调用本模块，
-  并注入 `Anchor.Context`（Note 快照等）。zongzi 不实现 Host。
+  **Caller**（库外编排者）在 Timeline 写操作落地后调用本模块，
+  并注入 `Anchor.Context`（Note 快照等）。zongzi 不实现 Caller。
 
   ## 交互契约
 
@@ -31,7 +31,7 @@ defmodule Zongzi.Anchor do
       # Timeline 状态落地（insert/split/merge/delete）│
       #     │                                         │
       #     ▼                                         │
-      # Anchor.rebase_all(ints, tl, ctx)  ←── Host 注入 Context
+      # Anchor.rebase_all(ints, tl, ctx)  ←── Caller 注入 Context
       #     │
       #     ├─ survived [Intervention.t()] ──→ 可进 render request
       #     │
@@ -51,7 +51,7 @@ defmodule Zongzi.Anchor do
 
   - `interventions` — 需要 rebase 的 interventions（可以为空）
   - `timeline` — **编辑后**的 Timeline（note_order/tombstones/seq_map 已更新）
-  - `context` — Host 注入的 Context（`notes_by_seq`、`seq_to_window` 等）
+  - `context` — Caller 注入的 Context（`notes_by_seq`、`seq_to_window` 等）
   - `opts`:
     - `:default_strategy` — intervention 未指定 strategy 时的回退，默认 `Zongzi.Anchor.NoteTriplet`
 

@@ -36,7 +36,7 @@ defmodule Zongzi.Intervention.Declaration do
   ## 时间单位
 
   intervention 的参数天然可能是秒（phoneme boundary 采样自音频）。
-  scope 声明也可用秒，切窗/换算时由 **Host 或引擎** 转 tick。
+  scope 声明也可用秒，切窗/换算时由 **Caller 或引擎** 转 tick。
   zongzi 核不强制 scope 单位；tick↔秒 转换留在库外（可用本库 TempoMap 工具）。
   """
 

@@ -17,5 +17,5 @@ Slicer 仅保留 note-only / 微缝或草稿用途；默认 phrase 切开用 `Wi
 
 ## 非目标
 
-- 不在此规定 Host 如何缓存 phrase。
+- 不在此规定 Caller 如何缓存 phrase。
 - 不把引擎后端绑进 Score。

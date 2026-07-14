@@ -9,54 +9,52 @@ Zongzi 是：
 
 ## 边界：核内 vs 库外
 
-| 在 zongzi 内 | 不在 zongzi 内（Host / 引擎 / 编辑器） |
+| 在 zongzi 内 | 不在 zongzi 内（Caller / 引擎 / 编辑器） |
 |---|---|
-| Score 基础（Note / Tempo / TimeSig / Grid） | Host 编排：edit batch → 组 Context → 调引擎 |
+| Score 基础（Note / Tempo / TimeSig / Grid） | Caller 编排：edit batch → 组 Context → 调引擎 |
 | Timeline 写路径 + Query 读原语 | 用户曲线绘制、重叠合成、清除工具（编辑器操作面） |
 | Anchor 结构 rebase（`rebase_all` / Strategy） | Declaration 的具体 channel 实现（接模型后再落） |
 | Intervention 数据形状 + Declaration **契约** | Engine 真实现、artifact 形状、引擎错误细节 |
 | Engine **契约**（`check` / 可选 `render`，只吃 `[Segment]`） | 编辑器操作面、phrase 缓存实现 |
-| Windowing **契约**（`Strategy.window/1` → `[Segment]`） | 邻片 pad 归属/缓存（Host/引擎） |
+| Windowing **契约**（`Strategy.window/1` → `[Segment]`） | 邻片 pad 归属/缓存（Caller/引擎） |
 | Slicer（note-only 旧工具） | cross-channel invalidation 策略 |
 
-**Host** 不是 zongzi 模块，而是**任意**库外编排者（编辑器 Session、测试 harness、CLI…）。  
+**Caller** 不是 zongzi 模块，而是**任意**库外编排者（编辑器 Session、测试 harness、CLI…）。  
 它持有 Note 表，在 edit 后组装 `Anchor.Context`，调用 `Anchor.rebase_all/4`，再按 Engine 契约做 check / render。
-
-**host**（小写，见 `Anchor.ScoredHost` / `choose_host`）是另一概念：孤儿 intervention 重定位时的**新 focus seq**。
 
 ## 核心架构
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant Host as Host (orchestrator)
+    participant Caller as Caller (orchestrator)
     participant Zongzi
     participant Engine as Engine (implementation agnostic)
 
-    User->>Host: Score / 编辑
-    Host->>Zongzi: Timeline 写操作
-    Host->>Engine: check / render（segments 常来自 WholeTrack）
-    Engine-->>Host: artifact₀
-    Host-->>User: artifact₀
+    User->>Caller: Score / 编辑
+    Caller->>Zongzi: Timeline 写操作
+    Caller->>Engine: check / render（segments 常来自 WholeTrack）
+    Engine-->>Caller: artifact₀
+    Caller-->>User: artifact₀
 
     loop 对抗轮
-        User->>Host: 挂/撤 interventions 和/或 编辑 notes
-        Host->>Zongzi: Timeline 更新
-        Host->>Zongzi: Anchor.rebase_all(ints, tl, ctx)
-        Zongzi-->>Host: survived + 结构 conflicts
-        Host-->>User: 结构 conflicts（若有）
+        User->>Caller: 挂/撤 interventions 和/或 编辑 notes
+        Caller->>Zongzi: Timeline 更新
+        Caller->>Zongzi: Anchor.rebase_all(ints, tl, ctx)
+        Zongzi-->>Caller: survived + 结构 conflicts
+        Caller-->>User: 结构 conflicts（若有）
 
-        Note over Host: Strategy.window/1 → [Segment]
-        Host->>Engine: check(%{segments: ...})
-        Engine-->>Host: check_artifact ± semantic conflicts
-        Host->>Engine: render(%{segments: ...})（可选，重）
-        Engine-->>Host: render_artifact
-        Host-->>User: check/render 结果
+        Note over Caller: Strategy.window/1 → [Segment]
+        Caller->>Engine: check(%{segments: ...})
+        Engine-->>Caller: check_artifact ± semantic conflicts
+        Caller->>Engine: render(%{segments: ...})（可选，重）
+        Engine-->>Caller: render_artifact
+        Caller-->>User: check/render 结果
     end
 
     opt 清理
-        User->>Host: 确认无 conflict
-        Host->>Zongzi: Timeline.gc
+        User->>Caller: 确认无 conflict
+        Caller->>Zongzi: Timeline.gc
     end
 ```
 

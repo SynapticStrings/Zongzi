@@ -12,6 +12,6 @@
 | [declaration-projection-resolution.md](declaration-projection-resolution.md) | Declaration → 投影 → resolve 生命周期 |
 | [intervention-semantics.md](intervention-semantics.md) | 什么是/不是 intervention；snapshot 语义 |
 | [anchor-operate-orthogonality.md](anchor-operate-orthogonality.md) | 结构锚（编辑时）⊥ 语义 operate（check 时） |
-| [boundary-ownership-open.md](boundary-ownership-open.md) | 邻片 pad/归属由 Host/引擎选型 |
+| [boundary-ownership-open.md](boundary-ownership-open.md) | 邻片 pad/归属由 Caller/引擎选型 |
 
-Host 产品（编辑器 Session、缓存层、UI）的决策**不**放在本目录。
+Caller 产品（编辑器 Session、缓存层、UI）的决策**不**放在本目录。

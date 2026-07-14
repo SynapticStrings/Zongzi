@@ -24,5 +24,5 @@ Declaration（约束 / scope / snapshot / resolve 策略）
 
 ## 非目标
 
-- 不规定 continuous vs event_sequence 的 Host 存储 layout。  
+- 不规定 continuous vs event_sequence 的 Caller 存储 layout。  
 - 具体 channel 实现不进核。

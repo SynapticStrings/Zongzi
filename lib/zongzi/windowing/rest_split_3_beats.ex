@@ -24,7 +24,7 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
   ## Caveats
 
   - scope 与 note 完全不相交时，作为独立 content span 参与合并/切开。
-  - 暂不做引擎 pad（pad 后置（Host））。
+  - 暂不做引擎 pad（pad 后置（Caller））。
   """
 
   @behaviour Zongzi.Windowing.Strategy

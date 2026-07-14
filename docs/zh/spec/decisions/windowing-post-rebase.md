@@ -51,7 +51,7 @@ check 轻；render 重。artifact 分层。`Segment` 是新瞬态闭包，不是
 
 ## 边界归属
 
-pad/scope 打穿邻片 → Host/引擎选型，见 [boundary-ownership-open.md](boundary-ownership-open.md)。
+pad/scope 打穿邻片 → Caller/引擎选型，见 [boundary-ownership-open.md](boundary-ownership-open.md)。
 
 ## 非目标
 
