@@ -165,6 +165,9 @@ defmodule Zongzi.AnchorTest do
   # Module defined here for default_strategy override test
   defmodule AlwaysPreserve do
     @behaviour Zongzi.Anchor.Strategy
+    @impl true
+    def referenced_seqs(%{anchor: {p, c, n}}), do: Enum.reject([p, c, n], &is_nil/1)
+    def referenced_seqs(_), do: []
     def rebase(_int, _tl, _ctx), do: {:ok, :preserve}
     def choose_host(_f, _tl, _ctx, _opts), do: {:conflict, :no_host}
   end

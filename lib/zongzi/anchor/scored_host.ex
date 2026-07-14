@@ -10,72 +10,75 @@ defmodule Zongzi.Anchor.ScoredHost do
   - 无 Note 信息 → score 1（垫底）
   - 同 key（同音高）→ 100
   - 同 Window（同渲染窗）→ 50
-  - 跨 Window → `:forbid`（硬约束）
+  - 跨 Window → `:forbid`（硬约束；seq_to_window 缺映射降为低分 1，不硬禁）
 
-  同分并列 → `{:conflict, :ambiguous_host}`。
+  同分且同 hops → `{:conflict, :ambiguous_host}`。
+
+  match_threshold / allow_follow_merge 从 Context 或 opts 取，语义同 NoteTriplet。
 
   ## Context 键
 
-  - `:notes_by_seq` — `%{SeqID.t() => Note.t()}`，用于读 key
-  - `:seq_to_window` — `%{SeqID.t() => window_id}`，可选，跨窗约束
-  - `:focus_note` — 原始 focus 的 Note（已删时从 snapshot 恢复）
+  - `:notes_by_seq` — `%{SeqID.t() => Note.t()}`
+  - `:seq_to_window` — `%{SeqID.t() => window_id}`
+  - `:focus_note` — 原始 focus 的 Note
+  - `:match_threshold` — 存活阈值（默认 2）
+  - `:allow_follow_merge` — 是否允许跟踪 merge 目标
   """
 
   @behaviour Zongzi.Anchor.Strategy
 
-  alias Zongzi.Intervention
-  alias Zongzi.Timeline.Query
+  alias Zongzi.{Intervention, Timeline}
+  alias Zongzi.Anchor.{TripletMatch, NoteTriplet}
+  alias Zongzi.Timeline.{Query, SeqID}
   alias Zongzi.Score.Key
 
+  @type triplet :: {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}
+
   @impl true
-  def rebase(intervention, tl, context) do
-    %Intervention{anchor: {old_prev, current, old_next}} = intervention
+  def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = tl, ctx) do
+    context = Map.merge(ctx, %{})
+    threshold = Map.get(context, :match_threshold, 2)
 
-    case Query.status(tl, current) do
-      :missing ->
-        do_scored_relocate(intervention, tl, current, context)
+    case TripletMatch.match(int, tl) do
+      {:active, match_count, {new_prev, _current, new_next}} ->
+        cond do
+          match_count >= threshold ->
+            if match_count == 3 do
+              {:ok, :preserve}
+            else
+              {:ok, {:rebase, %{int | anchor: {new_prev, current, new_next}}}}
+            end
 
-      :merge_tombstone ->
-        {:conflict, :merged_away}
-
-      :delete_tombstone ->
-        do_scored_relocate(intervention, tl, current, context)
-
-      :active ->
-        nb = Query.neighborhood(tl, current, active_only: false, count: 1)
-
-        new_prev =
-          case nb.left do
-            [%{seq_id: s}] -> s
-            [] -> nil
-          end
-
-        new_next =
-          case nb.right do
-            [%{seq_id: s}] -> s
-            [] -> nil
-          end
-
-        match_count =
-          1 +
-            if(old_prev == new_prev, do: 1, else: 0) +
-            if old_next == new_next, do: 1, else: 0
-
-        case match_count do
-          3 -> {:ok, :preserve}
-          2 -> {:ok, {:rebase, %{intervention | anchor: {new_prev, current, new_next}}}}
-          _ -> {:conflict, :adjacency_lost}
+          true ->
+            {:conflict, :adjacency_lost}
         end
+
+      {:tombstone, :merge} ->
+        if Map.get(context, :allow_follow_merge, false) do
+          NoteTriplet.rebase(int, tl, context)
+        else
+          {:conflict, :merged_away}
+        end
+
+      {:tombstone, :delete, _left_leg, _right_leg} ->
+        do_scored_relocate(int, tl, current, context)
     end
   end
+
+  @impl true
+  def referenced_seqs(%Intervention{anchor: {p, c, n}}),
+    do: TripletMatch.referenced_seqs({p, c, n})
+
+  def referenced_seqs(_), do: []
 
   @impl true
   def choose_host(focus, tl, context, opts) do
     scan_limit = Keyword.get(opts, :scan_limit, 4)
 
-    candidates =
-      Query.scan(tl, focus, :prev, active_only: true, limit: scan_limit) ++
-        Query.scan(tl, focus, :next, active_only: true, limit: scan_limit)
+    neighbors =
+      Query.neighborhood(tl, focus, active_only: true, count: scan_limit)
+
+    candidates = Enum.map(neighbors.left ++ neighbors.right, &{&1.seq_id, &1.hops_from_focus})
 
     scored = score_candidates(candidates, tl, context)
 
@@ -83,8 +86,9 @@ defmodule Zongzi.Anchor.ScoredHost do
       [] ->
         {:conflict, :no_host}
 
-      [{best, best_score} | rest] ->
-        if length(rest) > 0 and elem(hd(rest), 1) == best_score do
+      [{best, _best_score, _hops} | rest] ->
+        if rest != [] and elem(hd(rest), 1) == elem(scored |> hd(), 1) and
+             elem(hd(rest), 2) == elem(scored |> hd(), 2) do
           {:conflict, :ambiguous_host}
         else
           {:ok, best, %{scores: scored}}
@@ -119,9 +123,12 @@ defmodule Zongzi.Anchor.ScoredHost do
     focus_note = Map.get(context, :focus_note)
 
     candidates
-    |> Enum.map(fn cand -> {cand, score_one(cand, notes_by_seq, seq_to_window, focus_note)} end)
-    |> Enum.reject(fn {_, s} -> s == :forbid end)
-    |> Enum.sort_by(fn {_, s} -> -s end)
+    |> Enum.map(fn {cand, hops} ->
+      s = score_one(cand, notes_by_seq, seq_to_window, focus_note)
+      {cand, s, hops}
+    end)
+    |> Enum.reject(fn {_, s, _} -> s == :forbid end)
+    |> Enum.sort_by(fn {_, s, h} -> {s, -h} end, :desc)
   end
 
   defp score_one(cand, notes_by_seq, seq_to_window, focus_note) do
@@ -146,7 +153,7 @@ defmodule Zongzi.Anchor.ScoredHost do
 
   defp different_window?(cand, seq_to_window, focus_win) do
     case Map.get(seq_to_window, cand) do
-      nil -> true
+      nil -> false
       ^focus_win -> false
       _other -> true
     end

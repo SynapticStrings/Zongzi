@@ -17,26 +17,26 @@ defmodule Zongzi.Intervention do
   - 它们走引擎 `params` / 类型与范围检查（见 `Zongzi.Engine`），
     不做 Timeline 结构 rebase，也不做 snapshot 语义 conflict
 
-  Intervention 描述「在某处（anchor）、对某通道（channel）、做某种偏移（payload）」。
-  它不是渲染指令——**check** 时 resolve，**render** 时再物化为重产物。
+  ## 锚（anchor）
+
+  `anchor` 是 `term()`——形状由挂载它的 `Anchor.Strategy` 定义。
+  默认策略 `NoteTriplet` 使用 `{prev_seq | nil, current_seq, next_seq | nil}`。
+  其他策略（identity 锚、span 锚等）使用自己的形状，
+  通过 `Strategy.referenced_seqs/1` 声明依赖的 SeqID 集合。
 
   ## 两个判死时机
 
-  - **编辑时（结构）** — `Anchor.Strategy`（默认 `NoteTriplet`）检查锚点邻接是否存活。
+  - **编辑时（结构）** — `Anchor.Strategy` 检查锚点是否存活。
   - **check 时（语义）** — `Declaration.resolve` 比对 `snapshot` 与当前投影，apply / conflict。
 
   snapshot 优于输入指纹：改了歌词但 G2P 输出恰好相同不应判死；
   判死依据是「base 本身还在不在」，而非「产生 base 的输入变没变」。
   """
 
-  alias Zongzi.Timeline.SeqID
-
-  @type triplet :: {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}
-
   @type t :: %__MODULE__{
           id: term(),
           channel: atom(),
-          anchor: triplet(),
+          anchor: term(),
           payload: term(),
           snapshot: term(),
           scope: term(),

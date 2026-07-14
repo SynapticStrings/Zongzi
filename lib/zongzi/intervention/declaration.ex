@@ -5,6 +5,16 @@ defmodule Zongzi.Intervention.Declaration do
   每个 channel（:pitch, :phoneme_timing, ...）实现此 behaviour，
   定义三件事：切多宽、原始值是什么、现在还能不能叠回去。
 
+  ## Focus-split 载荷越界（Caveat，开放）
+
+  Triplet rebase 只判点锚存活——如果 focus 被 split，锚的 2/3 匹配会成功，
+  但 payload（曲线等）的 tick 区间可能已跨到子音符上。
+  **结构 rebase 不检查这条**。暂由 Declaration.resolve 在 check 时
+  通过 snapshot 兜底（snapshot 不对 → conflict）。
+
+  未来建议在 Declaration 契约加结构层钩子（`on_rebase/3`），
+  让 channel 在 rebase 时自主切分/收缩 payload 边界。
+
   ## 三个回调的调用时机
 
   - `scope/2` — 切窗前（静态，保守上界）。不能依赖投影结果，否则切窗和渲染

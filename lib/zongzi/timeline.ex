@@ -86,14 +86,13 @@ defmodule Zongzi.Timeline do
   def split_note(%__MODULE__{} = tl, %Note{} = note, split_tick, new_id) do
     seq_id = note.seq_id
 
-    with {:ok, _} <- note_order_index(tl, seq_id),
+    with {:ok, idx} <- note_order_index(tl, seq_id),
          :ok <- assert_not_tombstone(tl, seq_id),
          {:ok, before_note, after_note} <- Note.split(note, split_tick, new_id) do
       {new_seq, tl} = generate(tl)
       before_note = %{before_note | seq_id: seq_id}
       after_note = %{after_note | seq_id: new_seq}
 
-      {:ok, idx} = note_order_index(tl, seq_id)
       {left, right} = Enum.split(tl.note_order, idx + 1)
 
       tl = %__MODULE__{
@@ -106,7 +105,31 @@ defmodule Zongzi.Timeline do
     end
   end
 
-  @doc "拖拽 seq_id 到新 index。"
+  @doc """
+  拖拽 seq 到 target_seq 的 before/after 位置（锚相对语义，不依赖不稳定 index）。
+
+  拖拽墓碑拒绝；target 不存在报错。
+  """
+  @spec move_note(t(), SeqID.t(), SeqID.t(), :before | :after) :: {:ok, t()} | {:error, term()}
+  def move_note(%__MODULE__{} = tl, seq_id, target_seq, where)
+      when where in [:before, :after] do
+    with :ok <- assert_not_tombstone(tl, seq_id),
+         {:ok, src_idx} <- note_order_index(tl, seq_id),
+         {:ok, tgt_idx} <- note_order_index(tl, target_seq) do
+      without = List.delete_at(tl.note_order, src_idx)
+      # 删除后 target index 可能左移一位
+      tgt_idx2 = if src_idx < tgt_idx, do: tgt_idx - 1, else: tgt_idx
+      insert_idx = if where == :after, do: tgt_idx2 + 1, else: tgt_idx2
+      insert_idx = min(insert_idx, length(without))
+      {left, right} = Enum.split(without, insert_idx)
+      {:ok, %__MODULE__{tl | note_order: left ++ [seq_id | right]}}
+    else
+      {:error, reason} when not is_map(reason) -> {:error, reason}
+      {:error, _} = err -> err
+    end
+  end
+
+  @doc "拖拽 seq_id 到新 index。已废弃，建议用 move_note/4（锚相对语义）。"
   @spec drag_note(t(), SeqID.t(), non_neg_integer()) :: {:ok, t()} | {:error, term()}
   def drag_note(%__MODULE__{} = tl, seq_id, new_index)
       when is_integer(new_index) and new_index >= 0 do
@@ -184,11 +207,11 @@ defmodule Zongzi.Timeline do
       end)
       |> MapSet.new()
 
-    unreachable = Enum.filter(tl.tombstones, fn s -> not MapSet.member?(live_refs, s) end)
+    unreachable = tl.tombstones |> MapSet.difference(live_refs)
 
     %__MODULE__{
       tl
-      | note_order: Enum.reject(tl.note_order, &(&1 in unreachable)),
+      | note_order: Enum.reject(tl.note_order, &MapSet.member?(unreachable, &1)),
         tombstones: Enum.reduce(unreachable, tl.tombstones, &MapSet.delete(&2, &1))
     }
   end

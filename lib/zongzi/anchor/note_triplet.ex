@@ -10,74 +10,116 @@ defmodule Zongzi.Anchor.NoteTriplet do
   | current status | match | 输出 |
   |---|---|---|
   | active | 3/3 | `{:ok, :preserve}` |
-  | active | 2/3 | `{:ok, {:rebase, updated}}` |
-  | active | 1/3 | `{:conflict, :adjacency_lost}` |
-  | merge_tombstone | — | `{:conflict, :merged_away}` |
-  | delete_tombstone | — | relocate 到最近活跃邻居 |
-  | missing | — | relocate or conflict |
+  | active | ≥ threshold | `{:ok, {:rebase, updated}}` |
+  | active | < threshold | `{:conflict, :adjacency_lost}` |
+  | merge_tombstone | — | `{:conflict, :merged_away}`（或 `:follow_merge` relocate） |
+  | delete_tombstone | — | relocate 到最近活跃邻居（双腿扫描） |
+  | missing | — | 用 prev/next 腿重新出发，否则 conflict |
+
+  ## match_threshold
+
+  Context 或 Strategy opts 可设 `match_threshold`（默认 2）：
+  - `2` = 默认：≥2/3 匹配即存活
+  - `1` = lenient：仅 current 匹配即可（适合 pitch 等 parameter channel）
+
+  ## merged_away
+
+  默认 `{:conflict, :merged_away}`。若 Context 里设 `allow_follow_merge: true`，
+  则尝试跟随合并目标音符重定位。
 
   ## Context 键
 
-  - `:orphan_direction` — `:prev` | `:next`，默认 `:next`
+  - `:match_threshold` — 存活阈值（默认 2）
+  - `:allow_follow_merge` — 是否允许跟踪 merge 目标
+  - `:orphan_direction` — `:prev` | `:next`（默认 `:next`）
   """
 
   @behaviour Zongzi.Anchor.Strategy
 
   alias Zongzi.{Intervention, Timeline}
-  alias Zongzi.Timeline.Query
+  alias Zongzi.Anchor.TripletMatch
+  alias Zongzi.Timeline.{Query, SeqID}
+
+  @type triplet :: {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}
 
   @impl true
-  def rebase(intervention, tl, context \\ Zongzi.Anchor.Context.new())
+  def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = tl, ctx) do
+    context = Map.merge(ctx, %{})
+    threshold = Map.get(context, :match_threshold, 2)
 
-  def rebase(
-        %Intervention{anchor: {old_prev, current, old_next}} = int,
-        %Timeline{} = tl,
-        context
-      ) do
-    case Query.status(tl, current) do
-      :missing ->
-        do_relocate(int, tl, current, context)
+    case TripletMatch.match(int, tl) do
+      {:active, match_count, {new_prev, _current, new_next}} ->
+        cond do
+          match_count >= threshold ->
+            if match_count == 3 do
+              {:ok, :preserve}
+            else
+              {:ok, {:rebase, %{int | anchor: {new_prev, current, new_next}}}}
+            end
 
-      :merge_tombstone ->
-        {:conflict, :merged_away}
-
-      :delete_tombstone ->
-        do_relocate(int, tl, current, context)
-
-      :active ->
-        # neighborhood returns raw neighbors from note_order (active_only: false)
-        nb = Query.neighborhood(tl, current, active_only: false, count: 1)
-
-        new_prev =
-          case nb.left do
-            [%{seq_id: s}] -> s
-            [] -> nil
-          end
-
-        new_next =
-          case nb.right do
-            [%{seq_id: s}] -> s
-            [] -> nil
-          end
-
-        match_count =
-          1 +
-            if(old_prev == new_prev, do: 1, else: 0) +
-            if old_next == new_next, do: 1, else: 0
-
-        case match_count do
-          3 -> {:ok, :preserve}
-          2 -> {:ok, {:rebase, %{int | anchor: {new_prev, current, new_next}}}}
-          _ -> {:conflict, :adjacency_lost}
+          true ->
+            {:conflict, :adjacency_lost}
         end
+
+      {:tombstone, :merge} ->
+        if Map.get(context, :allow_follow_merge, false) do
+          follow_merge(int, tl, current, context)
+        else
+          {:conflict, :merged_away}
+        end
+
+      {:tombstone, :delete, _left_leg, _right_leg} ->
+        do_relocate(int, tl, current, context)
     end
   end
 
+  @impl true
+  def referenced_seqs(%Intervention{anchor: {p, c, n}}),
+    do: TripletMatch.referenced_seqs({p, c, n})
+
+  def referenced_seqs(_), do: []
+
+  # ---- private ----
+
+  # 跟随合并目标重定位
+  defp follow_merge(int, %Timeline{} = tl, dead_seq, _context) do
+    merged_id = Map.get(tl.seq_map, dead_seq)
+
+    active_merged =
+      Enum.find(tl.note_order, fn sid ->
+        not MapSet.member?(tl.tombstones, sid) and Map.get(tl.seq_map, sid) == merged_id
+      end)
+
+    if active_merged do
+      case Query.scrub_triplet(tl, active_merged) do
+        {:ok, triplet} ->
+          {:ok,
+           {:relocate, %{int | anchor: triplet},
+            %{from: dead_seq, to: active_merged, method: :follow_merge}}}
+
+        {:error, :not_active} ->
+          {:conflict, :merged_away}
+      end
+    else
+      {:conflict, :merged_away}
+    end
+  end
+
+  # relocate：从当前位置（墓碑）向两侧扫描活跃邻居
   defp do_relocate(int, tl, current, context) do
     direction = Map.get(context, :orphan_direction, :next)
 
-    case Query.scan(tl, current, direction, active_only: true, limit: 1) do
-      [nearest] ->
+    prev_cand = Query.scan(tl, current, :prev, active_only: true, limit: 1)
+    next_cand = Query.scan(tl, current, :next, active_only: true, limit: 1)
+
+    all =
+      case direction do
+        :prev -> prev_cand ++ next_cand
+        :next -> next_cand ++ prev_cand
+      end
+
+    case all do
+      [nearest | _] ->
         case Query.scrub_triplet(tl, nearest) do
           {:ok, triplet} ->
             {:ok,
