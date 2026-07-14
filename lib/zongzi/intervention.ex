@@ -2,7 +2,7 @@ defmodule Zongzi.Intervention do
   @moduledoc """
   对**上游已生成、且允许用户修改**的局部结果所挂的修改意图。
 
-  ## 什么是 / 不是 Intervention
+  ## 定义与约束
 
   **是**（模型或管线生成 → 用户可改 → 可挂锚与 snapshot）：
 
@@ -13,7 +13,7 @@ defmodule Zongzi.Intervention do
 
   **不是**（全局/音色类旋钮，不进本 struct）：
 
-  - Gender、Energy、主音高等 **非生成式局部结果** 的参数  
+  - Gender、Energy、气声等 **非生成式局部结果** 的参数
   - 它们走引擎 `params` / 类型与范围检查（见 `Zongzi.Engine`），
     不做 Timeline 结构 rebase，也不做 snapshot 语义 conflict
 
