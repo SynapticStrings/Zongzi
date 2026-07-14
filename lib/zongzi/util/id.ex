@@ -1,10 +1,19 @@
 defmodule Zongzi.Util.ID do
-  @moduledoc "声明领域实体的 ID 的模块。"
+  @moduledoc """
+  声明领域实体的 ID 的模块。
+
+  对，单纯就是 ID 罢了。
+  """
 
   @typedoc "声明 ID"
   @type t :: binary()
-  @typedoc "用于说明是什么对象的 ID"
-  @type t(_t) :: binary()
+
+  @typedoc """
+  用于说明是什么对象的 ID。
+
+  底层没什么，单纯问了文档好看罢了，就像 `t:Enumerable.t/1` 一样。
+  """
+  @type t(_t) :: t()
 
   @doc """
   生成新对象的 ID。

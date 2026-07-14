@@ -45,4 +45,10 @@ defmodule Zongzi.Timeline.SeqID do
   def compare(a, b) when a < b, do: :lt
   def compare(a, b) when a > b, do: :gt
   def compare(_a, _b), do: :eq
+
+  # defguard is_seq_id(maybe_seq_id) when is_integer(maybe_seq_id) and maybe_seq_id > 0
+
+  # def next(prev) when is_seq_id(prev), do: prev + 1
+
+  # def next, do: 1
 end

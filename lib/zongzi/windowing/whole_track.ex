@@ -1,15 +1,17 @@
 defmodule Zongzi.Windowing.WholeTrack do
   @moduledoc """
-  恒将全部 active note 收成**一个** Segment（UTAU / 无 phrase cache 友好）。
+  恒将全部 active note 收成单一的 Segment ，用于不需要 phrase
+  cache 或兼容 UTAU 等的情况。
 
-  忽略 rest 阈值；仍会把带 `scope: {s,e}` 的 intervention 并入 tick 范围。
-  无 active note 且无 scope 时返回空列表。
+  无条件将所有的 active notes 组合成一个 Segment 。若无
+  active note 且无 scope 时返回空列表。
   """
 
   @behaviour Zongzi.Windowing.Strategy
 
   alias Zongzi.Windowing.{Context, Segment}
   alias Zongzi.Timeline.Query
+  import Zongzi.Score.Tick
 
   @impl true
   def window(%Context{timeline: tl, notes_by_seq: notes, interventions: ivs}) do
@@ -46,7 +48,7 @@ defmodule Zongzi.Windowing.WholeTrack do
   end
 
   defp scope_span(%{scope: {s, e}})
-       when is_integer(s) and is_integer(e) and e > s,
+       when is_numeric_tick(s) and is_numeric_tick(e) and e > s,
        do: {s, e, []}
 
   defp scope_span(_), do: nil

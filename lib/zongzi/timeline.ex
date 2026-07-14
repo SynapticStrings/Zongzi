@@ -14,14 +14,13 @@ defmodule Zongzi.Timeline do
   ## 查询原语
 
   `status/2`、`scan/4`、`neighborhood/3` 等查询原语在 `Timeline.Query`。
-  `adjacent/2`、`try_match/2` 等旧 API 保留在本模块，内部 delegate 到 Query。
   """
   alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
 
   @type t :: %__MODULE__{
           track_id: ID.t(),
           note_order: [SeqID.t()],
-          seq_map: %{SeqID.t() => ID.t()},
+          seq_map: %{SeqID.t() => ID.t(Note)},
           tombstones: MapSet.t(SeqID.t())
         }
 
@@ -31,7 +30,8 @@ defmodule Zongzi.Timeline do
   创建 Timeline。
 
   ## 选项
-  - `:next_seq` — 反序列化时传入，应设为 `max(已有 seq_id) + 1`。新建时留空（默认 1）。
+
+  - `:next_seq` — 反序列化时传入，应设为 `max(existed seq_id) + 1`。新建时留空（默认 1）。
   """
   def new(track_id, opts \\ []) do
     next_seq = Keyword.get(opts, :next_seq, 1)
