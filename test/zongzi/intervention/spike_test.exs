@@ -62,7 +62,8 @@ defmodule Zongzi.Intervention.SpikeTest do
       channel: :phoneme_timing,
       anchor: triplet,
       payload: %{base: base, delta: delta},
-      strategy: MockTiming
+      strategy: MockTiming,
+      declaration: NoteTriplet
     }
 
     %{int | snapshot: MockTiming.snapshot(nil, int)}

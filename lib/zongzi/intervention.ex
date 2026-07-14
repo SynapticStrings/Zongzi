@@ -40,7 +40,8 @@ defmodule Zongzi.Intervention do
           payload: term(),
           snapshot: term(),
           scope: term(),
-          strategy: module() | nil
+          strategy: module() | nil,
+          declaration: module()
         }
 
   defstruct [

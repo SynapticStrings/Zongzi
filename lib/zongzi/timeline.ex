@@ -201,10 +201,7 @@ defmodule Zongzi.Timeline do
   def gc(%__MODULE__{} = tl, interventions) do
     live_refs =
       interventions
-      |> Enum.flat_map(fn int ->
-        {p, c, n} = int.anchor
-        [p, c, n] |> Enum.reject(&is_nil/1)
-      end)
+      |> Enum.flat_map(&(&1.declaration.referenced_seqs(&1)))
       |> MapSet.new()
 
     unreachable = tl.tombstones |> MapSet.difference(live_refs)

@@ -83,4 +83,9 @@ defmodule Zongzi.Intervention.Declaration do
               intervention :: Intervention.t(),
               fresh_projection :: term()
             ) :: {:ok, term()} | {:conflict, term()}
+
+  @callback on_rebase(intervention :: Intervention.t(), meta :: term(), timeline :: Timeline.t()) ::
+              {:ok, Intervention.t()} | {:conflict, term()} | {:split, children :: Enumerable.t(Intervention.t())}
+
+  @optional_callbacks on_rebase: 3
 end
