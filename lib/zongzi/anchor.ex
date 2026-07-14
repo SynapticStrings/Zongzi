@@ -20,7 +20,7 @@ defmodule Zongzi.Anchor do
 
   ## 谁调用
 
-  **Host**（库外，如 Equinox）在 Timeline 写操作落地后调用本模块，
+  **Host**（库外编排者）在 Timeline 写操作落地后调用本模块，
   并注入 `Anchor.Context`（Note 快照等）。zongzi 不实现 Host。
 
   ## 交互契约

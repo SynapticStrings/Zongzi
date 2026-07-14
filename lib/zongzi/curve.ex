@@ -16,7 +16,7 @@ defmodule Zongzi.Curve do
   - `Curve.ControlPoint` / `Curve.Chunk` — 轻量数据结构
   - `Curve.Adapter` + Bezier / CatmullRom — 按 tick 序列采样（rasterize）
 
-  不承诺：Cadencii 式 Cluster→Curve 合成管线、编辑 UX、与 Tempo 曲线的一体化。
+  不承诺：Cluster 重叠合成管线、编辑 UX、与 Tempo 曲线的一体化。
   需要高性能栅格化时，下游用 NIF 替换 Adapter 即可。
 
   对抗循环请读 `Intervention` + `Anchor` + `Engine`，不要从本模块起步。

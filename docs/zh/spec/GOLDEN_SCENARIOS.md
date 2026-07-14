@@ -26,9 +26,10 @@ Zongzi 及基于其开发的 SVS 编辑器的显著不同，是出发点是**跨
 | G-AN-03 | delete 孤儿 | focus 删除 → relocate（方向 / 打分）或 no_host | NoteTriplet / ScoredHost | 有单测 |
 | G-AN-04 | 跨窗 forbid | ScoredHost 在 seq_to_window 下拒绝跨窗宿主 | ScoredHost | 有单测（Context 注入） |
 | G-INT-01 | 挂载→编辑→rebase→resolve | 完整对抗一轮（mock Declaration） | spike_test | spike |
-| G-INT-02 | snapshot 失配 | 投影变了 → conflict / skip，不静默 apply | Declaration 实现 | feasibility smoke |
-| G-WIN-01 | Timeline 分窗 | note_order + tick 切分 → Segment + seq_to_window | Windowing | **未落地** |
+| G-INT-02 | snapshot 失配 | 投影变了 → conflict / skip，不静默 apply | Declaration 实现 | spike / 引擎侧 |
+| G-WIN-01 | Timeline 分窗 | post-rebase：`Strategy.window/1`；默认空≥3拍且 1/2 归属 → `[Slice]` | Windowing | 有单测 |
 | G-ENG-01 | 引擎错误 vs conflict | render error 与 intervention conflict 分流 | Engine 契约 | **未落地** |
+| G-ENG-02 | whole / partial | check/render × whole/partial；optional callbacks | Engine | 契约测有；真引擎后置 |
 
 ## 补场景时的写法
 
@@ -42,3 +43,7 @@ Zongzi 及基于其开发的 SVS 编辑器的显著不同，是出发点是**跨
 ```
 
 实现优先补「有单测」行的文档化；**未落地**行不要写假结果。
+
+## 决策索引
+
+见 `docs/zh/spec/decisions/README.md`。

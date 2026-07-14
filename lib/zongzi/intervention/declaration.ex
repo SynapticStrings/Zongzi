@@ -17,7 +17,7 @@ defmodule Zongzi.Intervention.Declaration do
   ## snapshot-resolve 的比对语义
 
   比对要求投影确定性——同引擎同版本下，相同输入产生逐位可复现的投影。
-  引擎升级 = 全部快照失配 = conflict 风暴，这是 ADR-012 声明的显式最坏情形。
+  引擎/模型升级 = 全部快照失配 = conflict 风暴——这是显式接受的最坏情形，不是静默兼容。
 
   浮点比对不引入 tolerance（tolerance 就是 fuzzy match 的后门）。
   如有跨进程浮点漂移风险，在 snapshot 序列化时做 round-trip 归一化
@@ -26,8 +26,8 @@ defmodule Zongzi.Intervention.Declaration do
   ## 时间单位
 
   intervention 的参数天然可能是秒（phoneme boundary 采样自音频）。
-  scope 声明也可用秒，切窗时由调用方（equinox NIF / 前端）转 tick。
-  zongzi 不持有 tempo map 依赖——tick↔秒 转换留在 zongzi 外。
+  scope 声明也可用秒，切窗/换算时由 **Host 或引擎** 转 tick。
+  zongzi 核不强制 scope 单位；tick↔秒 转换留在库外（可用本库 TempoMap 工具）。
   """
 
   alias Zongzi.{Intervention, Timeline}

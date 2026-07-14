@@ -2,7 +2,7 @@ defmodule Zongzi.Anchor.Context do
   @moduledoc """
   Host 注入的只读领域上下文。
 
-  **Host** 不是本库模块，而是库外编排者（典型：Equinox）。
+  **Host** 不是本库模块，而是任意库外编排者。
   它在调用 `Anchor.rebase_all/4` 时组装本 map：持有 Note 快照、可选窗映射等。
 
   Timeline 查询原语不依赖本结构。Strategy 用此访问 Note **静态**字段
@@ -13,7 +13,7 @@ defmodule Zongzi.Anchor.Context do
   ## 常用键
 
   - `:notes_by_seq` — `%{SeqID.t() => Note.t()}`，Host 在 rebase 调用时给的快照
-  - `:seq_to_window` — 可选，`%{SeqID.t() => window_id}`；由 Windowing（未落地）或 Host 在分窗后注入
+  - `:seq_to_window` — 可选，`%{SeqID.t() => window_id}`；rebase 时若提供，应为**上一轮**窗映射（启发式）。本轮最终切片在 rebase **之后**由 `Windowing.Strategy.window/1` 重算
   - `:focus_note` — 孤儿 relocate 时原始 focus 的 Note（已删时可从旁路恢复）
   - `:orphan_direction` — `:prev` | `:next`（NoteTriplet 默认 `:next`）
   - `:channel` — atom
