@@ -61,7 +61,6 @@ defmodule Zongzi.Anchor.TripletMatch do
   @spec referenced_seqs(triplet()) :: [SeqID.t()]
   def referenced_seqs({a, b, c}), do: Enum.reject([a, b, c], &is_nil/1)
 
-
   @doc """
   将 focus 洗成「左右均为 active（或 nil）」的三元组。
   """
@@ -88,5 +87,4 @@ defmodule Zongzi.Anchor.TripletMatch do
       {:error, :not_active}
     end
   end
-
 end

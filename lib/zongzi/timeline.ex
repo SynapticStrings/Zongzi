@@ -161,7 +161,8 @@ defmodule Zongzi.Timeline do
       {2, %Zongzi.Timeline{track_id: "Track-b", next_seq: 3}}
   """
   @spec generate(t()) :: {SeqID.t(), t()}
-  def generate(%__MODULE__{next_seq: next} = timeline), do: {next, %__MODULE__{timeline | next_seq: next + 1}}
+  def generate(%__MODULE__{next_seq: next} = timeline),
+    do: {next, %__MODULE__{timeline | next_seq: next + 1}}
 
   # ---- 写操作（单个音符的 CRUD） ----
 
@@ -319,6 +320,7 @@ defmodule Zongzi.Timeline do
 
   # 从 seq_ids 列表构造相邻子链 nodes
   defp build_sub_chain([]), do: %{}
+
   defp build_sub_chain(seq_ids) do
     prevs = [nil | Enum.drop(seq_ids, -1)]
     nexts = Enum.drop(seq_ids, 1) ++ [nil]
@@ -330,7 +332,9 @@ defmodule Zongzi.Timeline do
   end
 
   # 从 from 向 next 方向走到 to，收集经过的 seq_id
-  defp collect_range(_nodes, current, to, acc) when current == to, do: {:ok, Enum.reverse([current | acc])}
+  defp collect_range(_nodes, current, to, acc) when current == to,
+    do: {:ok, Enum.reverse([current | acc])}
+
   defp collect_range(nodes, current, to, acc) do
     {_, nxt} = Map.fetch!(nodes, current)
 
@@ -388,9 +392,7 @@ defmodule Zongzi.Timeline do
 
       tail = if old_next, do: timeline.tail, else: last
 
-      {:ok,
-       %{timeline | nodes: nodes, seq_map: seq_map, tail: tail},
-       notes_with_seq}
+      {:ok, %{timeline | nodes: nodes, seq_map: seq_map, tail: tail}, notes_with_seq}
     end
   end
 

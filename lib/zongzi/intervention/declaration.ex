@@ -84,6 +84,9 @@ defmodule Zongzi.Intervention.Declaration do
               fresh_projection :: term()
             ) :: {:ok, term()} | {:conflict, term()}
 
+  # 用于结构化语境无变化但可能存在变化的情况
+  # e.g. 修改 duration
+  # 这些操作不会修改序列顺序，但是可能导致 intervention 边界发生变化
   @callback on_rebase(intervention :: Intervention.t(), meta :: term(), timeline :: Timeline.t()) ::
               {:ok, Intervention.t()}
               | {:conflict, term()}

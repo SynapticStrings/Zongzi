@@ -168,8 +168,8 @@ defmodule Zongzi.Score.Note do
   @doc """
   读取元数据。
 
-  * get_metadata/1 返回全部（一直带 ok tuple）
-  * get_metadata/2 返回 ok_or_err
+  * get_metadata/1 返回全部元数据
+  * get_metadata/2 如果没有对应的键会返回 `{:error, {:key_not_found, target_key}}`
   """
   @spec get_metadata(t()) :: {:ok, metadata()}
   def get_metadata(note), do: {:ok, note.metadata}
@@ -192,9 +192,8 @@ defmodule Zongzi.Score.Note do
   @spec remove_metadata(t(), :all | [binary()]) :: {:ok, t()}
   def remove_metadata(note, :all), do: update(note, metadata: %{})
 
-  def remove_metadata(note, keys) when is_list(keys) do
-    update(note, metadata: Map.drop(note.metadata, keys))
-  end
+  def remove_metadata(note, keys) when is_list(keys),
+    do: update(note, metadata: Map.drop(note.metadata, keys))
 
   # ---- 音符切分与合并 ----
 
@@ -206,7 +205,7 @@ defmodule Zongzi.Score.Note do
 
   `attrs` 可选，用于覆盖切分后后部音符的字段（如不同的歌词）。
   """
-  @spec split(t(), Tick.t(), map() | keyword()) :: {:ok, t(), t()} | {:error, term()}
+  @spec split(t(), Tick.t(), ID.t(t()), map() | keyword()) :: {:ok, t(), t()} | {:error, term()}
   def split(note, split_tick, new_id, attrs \\ []) do
     note_end = note.start_tick + note.duration_tick
 
@@ -265,7 +264,7 @@ defmodule Zongzi.Score.Note do
   - 返回 `{:ok, merged_note}`，生成新 ID
   - 合并后 `slice_flag` 设为 `:auto`
   """
-  @spec merge(t(), t(), ID.t(), keyword()) :: {:ok, t()} | {:error, term()}
+  @spec merge(t(), t(), ID.t(t()), keyword()) :: {:ok, t()} | {:error, term()}
   def merge(note1, note2, merged_id, opts \\ []) do
     gap_tolerance = Keyword.get(opts, :gap_tolerance, 0)
     note1_end = note1.start_tick + note1.duration_tick

@@ -11,10 +11,6 @@ defmodule Zongzi.Timeline.Query do
   - insert 同时写 nodes 链表和 seq_map
   - gc 同时从 nodes 链表和 tombstones 移除
   因此不存在「链表里有但 tombstones 和 seq_map 都没有」的状态。
-
-  ## 复杂度（双向链表版）
-
-  遍历用指针跟随替代列表切片；不再需要 O(n) 前缀 take/drop。
   """
 
   alias Zongzi.Timeline
@@ -97,7 +93,6 @@ defmodule Zongzi.Timeline.Query do
     end
   end
 
-  
   @doc """
   链表上两点格距（含墓碑格）。任一方不在链表中返回 error。O(k)，k=距离。
   """
