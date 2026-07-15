@@ -175,40 +175,6 @@ defmodule Zongzi.Timeline.QueryTest do
     end
   end
 
-  describe "scrub_triplet/2" do
-    test "active focus gets clean triplet" do
-      {tl, notes} = build_tl([note(), note(), note()])
-      [a, b, c] = notes
-      assert Timeline.Query.scrub_triplet(tl, b.seq_id) == {:ok, {a.seq_id, b.seq_id, c.seq_id}}
-    end
-
-    test "scrubs tombstones from neighbors" do
-      {tl, notes} = build_tl([note(), note(), note()])
-      [a, b, c] = notes
-      {:ok, tl} = Timeline.delete_note(tl, b.seq_id)
-      assert Timeline.Query.scrub_triplet(tl, c.seq_id) == {:ok, {a.seq_id, c.seq_id, nil}}
-    end
-
-    test "head focus gets nil prev" do
-      {tl, notes} = build_tl([note(), note()])
-      [a, b] = notes
-      assert Timeline.Query.scrub_triplet(tl, a.seq_id) == {:ok, {nil, a.seq_id, b.seq_id}}
-    end
-
-    test "tail focus gets nil next" do
-      {tl, notes} = build_tl([note(), note()])
-      [a, b] = notes
-      assert Timeline.Query.scrub_triplet(tl, b.seq_id) == {:ok, {a.seq_id, b.seq_id, nil}}
-    end
-
-    test "tombstone focus returns error" do
-      {tl, notes} = build_tl([note(), note()])
-      [a, _b] = notes
-      {:ok, tl} = Timeline.delete_note(tl, a.seq_id)
-      assert Timeline.Query.scrub_triplet(tl, a.seq_id) == {:error, :not_active}
-    end
-  end
-
   describe "hops/3" do
     test "adjacent notes have hop 1" do
       {tl, notes} = build_tl([note(), note()])

@@ -60,4 +60,33 @@ defmodule Zongzi.Anchor.TripletMatch do
   @doc "三元组依赖的 SeqID 列表（gc 用）。"
   @spec referenced_seqs(triplet()) :: [SeqID.t()]
   def referenced_seqs({a, b, c}), do: Enum.reject([a, b, c], &is_nil/1)
+
+
+  @doc """
+  将 focus 洗成「左右均为 active（或 nil）」的三元组。
+  """
+  @spec scrub_triplet(Timeline.t(), SeqID.t()) ::
+          {:ok, {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}} | {:error, :not_active}
+  def scrub_triplet(%Timeline{} = timeline, focus) do
+    nb = Timeline.Query.neighborhood(timeline, focus, active_only: true, count: 1)
+
+    if nb.focus_status == :active do
+      prev =
+        case nb.left do
+          [%{seq_id: s}] -> s
+          [] -> nil
+        end
+
+      next_ =
+        case nb.right do
+          [%{seq_id: s}] -> s
+          [] -> nil
+        end
+
+      {:ok, {prev, focus, next_}}
+    else
+      {:error, :not_active}
+    end
+  end
+
 end

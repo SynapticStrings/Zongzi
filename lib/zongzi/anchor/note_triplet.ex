@@ -94,7 +94,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
       end)
 
     if active_merged do
-      case Query.scrub_triplet(timeline, active_merged) do
+      case TripletMatch.scrub_triplet(timeline, active_merged) do
         {:ok, triplet} ->
           {:ok,
            {:relocate, %{int | anchor: triplet},
@@ -123,7 +123,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
     case all do
       [nearest | _] ->
-        case Query.scrub_triplet(timeline, nearest) do
+        case TripletMatch.scrub_triplet(timeline, nearest) do
           {:ok, triplet} ->
             {:ok,
              {:relocate, %{int | anchor: triplet},

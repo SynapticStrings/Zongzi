@@ -97,33 +97,7 @@ defmodule Zongzi.Timeline.Query do
     end
   end
 
-  @doc """
-  将 focus 洗成「左右均为 active（或 nil）」的三元组。
-  """
-  @spec scrub_triplet(Timeline.t(), SeqID.t()) ::
-          {:ok, {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}} | {:error, :not_active}
-  def scrub_triplet(%Timeline{} = timeline, focus) do
-    nb = neighborhood(timeline, focus, active_only: true, count: 1)
-
-    if nb.focus_status == :active do
-      prev =
-        case nb.left do
-          [%{seq_id: s}] -> s
-          [] -> nil
-        end
-
-      next_ =
-        case nb.right do
-          [%{seq_id: s}] -> s
-          [] -> nil
-        end
-
-      {:ok, {prev, focus, next_}}
-    else
-      {:error, :not_active}
-    end
-  end
-
+  
   @doc """
   链表上两点格距（含墓碑格）。任一方不在链表中返回 error。O(k)，k=距离。
   """

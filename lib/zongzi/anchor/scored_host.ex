@@ -107,7 +107,7 @@ defmodule Zongzi.Anchor.ScoredHost do
   defp do_scored_relocate(intervention, timeline, current, context) do
     case choose_host(current, timeline, context, []) do
       {:ok, best, meta} ->
-        case Query.scrub_triplet(timeline, best) do
+        case TripletMatch.scrub_triplet(timeline, best) do
           {:ok, triplet} ->
             {:ok,
              {:relocate, %{intervention | anchor: triplet},

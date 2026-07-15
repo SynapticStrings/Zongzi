@@ -3,15 +3,10 @@ defmodule Zongzi.Timeline.SeqID do
   全局唯一的序列位置 ID。
 
   设计借鉴 Sequence CRDT 的 position identifier（RGA 系）：
-  - **永不改变、永不重用**——即使所属 Note 被 split/merge/drag，SeqID 也不变
-  - **单调递增**——保证 Timeline 上的全序
-  - **不编码后代关系**——split 产生的子 Note 用新 SeqID，父子关系由上层（Timeline）维护
 
-  ## Yjs 借鉴
-
-  Yjs 的 ID 是 `(client_id, clock_counter)` 对。zongzi 是单用户编辑，
-  不需要 client_id 维度的分片——直接用 Erlang 的 `System.unique_integer([:monotonic])`。
-  这是 Yjs 在单副本退化下的等效物。
+  - **永不改变、永不重用**：即使所属 Note 被 split/merge/drag，SeqID 也不变
+  - **单调递增**：保证 Timeline 上的全序
+  - **不编码后代关系**：split 产生的子 Note 用新 SeqID，父子关系由上层（Timeline）维护
 
   ## 用途
 
@@ -29,11 +24,7 @@ defmodule Zongzi.Timeline.SeqID do
   @typedoc "SeqID 是一个单调递增的正整数"
   @type t :: pos_integer()
 
-  # SeqID 生成权已移交给 Timeline（自持 counter），不再提供全局 generate/0。
-  # 这里只保留类型定义和比较函数。
-  #
-  # 原因：`System.unique_integer([:monotonic])` 是 BEAM 实例级的，跨会话重启后
-  # 计数器归零，与已序列化的 seq_id 碰撞。Timeline 自持 `next_seq` 字段，
+  # Timeline 自持 `next_seq` 字段，
   # 反序列化时从已载入的 max seq_id + 1 起算。
 
   @doc """
