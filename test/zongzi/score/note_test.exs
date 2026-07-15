@@ -3,7 +3,7 @@ defmodule Zongzi.NoteTest do
 
   alias Zongzi.Util.ID
   alias Zongzi.Score.{Note, Key}
-  doctest Note, [import: true]
+  doctest Note, import: true
 
   describe "Note sequence ID test" do
     test "new/1 leaves seq_id nil when not provided" do

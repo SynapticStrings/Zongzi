@@ -45,6 +45,7 @@ defmodule Zongzi.Intervention.OnRebaseTest do
 
   test "split after rebase: on_rebase splits into children" do
     {tl, n1, n2, n3} = build_3()
+
     int = %Intervention{
       id: "iv1",
       channel: :pitch,
@@ -67,6 +68,7 @@ defmodule Zongzi.Intervention.OnRebaseTest do
 
   test "preserve: on_rebase returns ok unchanged" do
     {tl, n1, n2, n3} = build_3()
+
     int = %Intervention{
       id: "iv1",
       channel: :pitch,
@@ -86,6 +88,7 @@ defmodule Zongzi.Intervention.OnRebaseTest do
 
   test "no declaration field -> fall through, no crash" do
     {tl, n1, n2, n3} = build_3()
+
     int = %Intervention{
       id: "iv1",
       channel: :pitch,

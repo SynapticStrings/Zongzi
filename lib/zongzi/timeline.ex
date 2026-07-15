@@ -71,6 +71,63 @@ defmodule Zongzi.Timeline do
   end
 
   @doc """
+  从序列化参数重建 Timeline。
+
+  `note_order` → 链表，O(n)。
+
+  ## 参数
+
+    * `track_id` — 必填
+    * `note_order` — `[SeqID.t()]`，有序列表（含墓碑）
+    * `seq_map` — 可选，默认 `%{}`
+    * `tombstones` — `[SeqID.t()]`，可选，默认 `[]`
+    * `next_seq` — 可选，默认 `max(note_order) + 1`
+
+  ## Examples
+
+      iex> build(
+      ...>   %{track_id: "t1", note_order: [],
+      ...>   seq_map: %{}, tombstones: []})
+      {:ok, %Timeline{track_id: "t1", next_seq: 1}}
+
+      iex> build(
+      ...>   %{track_id: "t1", note_order: [1, 2],
+      ...>   seq_map: %{1 => "N_a", 2 => "N_b"}, tombstones: [2]})
+      {:ok, %Timeline{
+        track_id: "t1",
+        head: 1, tail: 2,
+        nodes: %{1 => {nil, 2}, 2 => {1, nil}},
+        seq_map: %{1 => "N_a", 2 => "N_b"},
+        tombstones: MapSet.new([2]), next_seq: 3}
+      }
+  """
+  @spec build(%{
+          required(:track_id) => ID.t(),
+          required(:note_order) => [SeqID.t()],
+          optional(:seq_map) => %{SeqID.t() => ID.t(Note)},
+          optional(:tombstones) => [SeqID.t()],
+          optional(:next_seq) => pos_integer()
+        }) :: {:ok, t()}
+  def build(%{track_id: track_id, note_order: order} = attrs) do
+    seq_map = Map.get(attrs, :seq_map, %{})
+    tombstones = attrs |> Map.get(:tombstones, []) |> MapSet.new()
+    next_seq = Map.get(attrs, :next_seq, default_next(order))
+
+    tl = %__MODULE__{
+      track_id: track_id,
+      seq_map: seq_map,
+      tombstones: tombstones,
+      next_seq: next_seq
+    }
+
+    tl = Enum.reduce(order, tl, fn seq_id, acc -> link_tail(acc, seq_id) end)
+    {:ok, tl}
+  end
+
+  defp default_next([]), do: 1
+  defp default_next(order), do: Enum.max(order) + 1
+
+  @doc """
   head→tail walk，返回完整 [SeqID.t()]（含墓碑）。替代旧 `note_order` 字段访问。
   """
   @spec to_list(t()) :: [SeqID.t()]
@@ -103,7 +160,8 @@ defmodule Zongzi.Timeline do
       {2, %Zongzi.Timeline{track_id: "Track-b", next_seq: 3}}
   """
   @spec generate(t()) :: {SeqID.t(), t()}
-  def generate(%__MODULE__{next_seq: next} = timeline), do: {next, %__MODULE__{timeline | next_seq: next + 1}}
+  def generate(%__MODULE__{next_seq: next} = timeline),
+    do: {next, %__MODULE__{timeline | next_seq: next + 1}}
 
   @doc "将音符追加到 Timeline 末尾。"
   @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()}
@@ -164,7 +222,11 @@ defmodule Zongzi.Timeline do
       after_note = %{after_note | seq_id: new_seq}
 
       timeline = link_after(timeline, new_seq, seq_id)
-      timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, new_seq, timeline.seq_map[seq_id])}
+
+      timeline = %__MODULE__{
+        timeline
+        | seq_map: Map.put(timeline.seq_map, new_seq, timeline.seq_map[seq_id])
+      }
 
       {:ok, timeline, before_note, after_note}
     end
@@ -200,7 +262,8 @@ defmodule Zongzi.Timeline do
 
   seq_id_2 变墓碑，seq_id_1 保留并指向 merged_note_id。
   """
-  @spec merge_notes(t(), Note.t(), Note.t(), ID.t(Note.t())) :: {:ok, t(), Note.t()} | {:error, term()}
+  @spec merge_notes(t(), Note.t(), Note.t(), ID.t(Note.t())) ::
+          {:ok, t(), Note.t()} | {:error, term()}
   def merge_notes(%__MODULE__{} = timeline, %Note{} = note_a, %Note{} = note_b, merged_id) do
     s1 = note_a.seq_id
     s2 = note_b.seq_id

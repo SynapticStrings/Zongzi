@@ -5,7 +5,7 @@ defmodule Zongzi.TimelineTest do
   alias Zongzi.Score.{Note, Key}
   alias Zongzi.Timeline
 
-  doctest Zongzi.Timeline, [import: true]
+  doctest Zongzi.Timeline, import: true
 
   # ---- helpers ----
 
@@ -33,6 +33,68 @@ defmodule Zongzi.TimelineTest do
       assert Timeline.to_list(tl) == []
       assert tl.seq_map == %{}
       assert tl.tombstones == MapSet.new()
+    end
+  end
+
+  # ---- build ----
+
+  describe "build/1" do
+    test "从空 note_order 重建" do
+      {:ok, tl} = Timeline.build(%{track_id: "t1", note_order: []})
+      assert tl.track_id == "t1"
+      assert tl.head == nil
+      assert tl.tail == nil
+      assert Timeline.to_list(tl) == []
+      assert tl.next_seq == 1
+    end
+
+    test "从有序列表重建链表" do
+      {:ok, tl} =
+        Timeline.build(%{
+          track_id: "t1",
+          note_order: [1, 2, 3],
+          seq_map: %{1 => "N_a", 2 => "N_b", 3 => "N_c"}
+        })
+
+      assert tl.head == 1
+      assert tl.tail == 3
+      assert Timeline.to_list(tl) == [1, 2, 3]
+      assert tl.seq_map[2] == "N_b"
+    end
+
+    test "含墓碑的序列重建" do
+      {:ok, tl} =
+        Timeline.build(%{
+          track_id: "t1",
+          note_order: [1, 2, 3],
+          seq_map: %{1 => "N_a", 3 => "N_c"},
+          tombstones: [2]
+        })
+
+      assert Timeline.to_list(tl) == [1, 2, 3]
+      assert MapSet.member?(tl.tombstones, 2)
+      refute Map.has_key?(tl.seq_map, 2)
+    end
+
+    test "指定 next_seq" do
+      {:ok, tl} =
+        Timeline.build(%{
+          track_id: "t1",
+          note_order: [5, 6],
+          next_seq: 100
+        })
+
+      assert tl.next_seq == 100
+    end
+
+    test "next_seq 默认为 max + 1" do
+      {:ok, tl} =
+        Timeline.build(%{
+          track_id: "t1",
+          note_order: [5, 6, 10]
+        })
+
+      assert tl.next_seq == 11
     end
   end
 

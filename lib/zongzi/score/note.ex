@@ -58,7 +58,7 @@ defmodule Zongzi.Score.Note do
   ## 用例
 
       iex> new(%{id: "Note_12345"})
-      {:ok, %Zongzi.Score.Note{id: "Note_12345"}}
+      {:ok, %Note{id: "Note_12345"}}
 
       iex> new(%{})
       {:error, {:missing_id, "Note_"}}

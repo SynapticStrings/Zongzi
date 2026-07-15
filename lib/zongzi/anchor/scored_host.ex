@@ -37,7 +37,11 @@ defmodule Zongzi.Anchor.ScoredHost do
   @type triplet :: {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}
 
   @impl true
-  def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = timeline, ctx) do
+  def rebase(
+        %Intervention{anchor: {_old_prev, current, _old_next}} = int,
+        %Timeline{} = timeline,
+        ctx
+      ) do
     context = Map.merge(ctx, %{})
     threshold = Map.get(context, :match_threshold, 2)
 

@@ -165,8 +165,6 @@ defmodule Zongzi.Timeline.Query do
     do_walk_dir(timeline, from, dir, active_only?, max_hops, limit, [], 0)
   end
 
-
-
   defp do_walk_dir(timeline, from, dir, active_only?, max_hops, limit, acc, hop) do
     next = next_in_dir(timeline, from, dir)
 
@@ -225,6 +223,7 @@ defmodule Zongzi.Timeline.Query do
   # hops 计算：沿 next 方向走，数步数
   defp count_hops_forward(_timeline, nil, _target, _n), do: :not_found
   defp count_hops_forward(_timeline, target, target, n), do: {:found, n}
+
   defp count_hops_forward(timeline, current, target, n) do
     count_hops_forward(timeline, Timeline.node_next(timeline, current), target, n + 1)
   end

@@ -41,7 +41,11 @@ defmodule Zongzi.Anchor.NoteTriplet do
   alias Zongzi.Timeline.Query
 
   @impl true
-  def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = timeline, ctx) do
+  def rebase(
+        %Intervention{anchor: {_old_prev, current, _old_next}} = int,
+        %Timeline{} = timeline,
+        ctx
+      ) do
     context = Map.merge(ctx, %{})
     threshold = Map.get(context, :match_threshold, 2)
 
@@ -85,7 +89,8 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
     active_merged =
       Enum.find(Timeline.to_list(timeline), fn sid ->
-        not MapSet.member?(timeline.tombstones, sid) and Map.get(timeline.seq_map, sid) == merged_id
+        not MapSet.member?(timeline.tombstones, sid) and
+          Map.get(timeline.seq_map, sid) == merged_id
       end)
 
     if active_merged do
