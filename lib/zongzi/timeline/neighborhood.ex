@@ -3,7 +3,8 @@ defmodule Zongzi.Timeline.Neighborhood do
   以 focus 为中心的局部序列视图。
 
   - `left` / `right`：由近到远
-  - `hops_from_focus`：在 note_order 上的格距（含墓碑格）
+  - `hops_from_focus`：在链表上的格距（含墓碑格）
+  - `order_index`：弃用字段，固定为 0（双向链表无廉价 index）
   """
 
   alias Zongzi.Timeline.SeqID

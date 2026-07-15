@@ -10,14 +10,15 @@ defmodule Zongzi.Windowing.WholeTrack do
   @behaviour Zongzi.Windowing.Strategy
 
   alias Zongzi.Windowing.{Context, Segment}
+  alias Zongzi.Timeline
   alias Zongzi.Timeline.Query
   import Zongzi.Score.Tick
 
   @impl true
-  def window(%Context{timeline: tl, notes_by_seq: notes, interventions: ivs}) do
+  def window(%Context{timeline: timeline, notes_by_seq: notes, interventions: intervs}) do
     seq_ids =
-      tl.note_order
-      |> Enum.filter(&Query.active?(tl, &1))
+      Timeline.to_list(timeline)
+      |> Enum.filter(&Query.active?(timeline, &1))
       |> Enum.filter(&Map.has_key?(notes, &1))
 
     note_spans =
@@ -27,7 +28,7 @@ defmodule Zongzi.Windowing.WholeTrack do
       end)
 
     scope_spans =
-      ivs
+      intervs
       |> Enum.map(&scope_span/1)
       |> Enum.reject(&is_nil/1)
 

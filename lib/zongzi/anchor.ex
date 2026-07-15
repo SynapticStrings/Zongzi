@@ -50,7 +50,7 @@ defmodule Zongzi.Anchor do
   ## 参数
 
   - `interventions` — 需要 rebase 的 interventions（可以为空）
-  - `timeline` — **编辑后**的 Timeline（note_order/tombstones/seq_map 已更新）
+  - `timeline` — **编辑后**的 Timeline（nodes/tombstones/seq_map 已更新）
   - `context` — Caller 注入的 Context（`notes_by_seq`、`seq_to_window` 等）
   - `opts`:
     - `:default_strategy` — intervention 未指定 strategy 时的回退，默认 `Zongzi.Anchor.NoteTriplet`

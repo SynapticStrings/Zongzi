@@ -41,11 +41,11 @@ defmodule Zongzi.Anchor.NoteTriplet do
   alias Zongzi.Timeline.Query
 
   @impl true
-  def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = tl, ctx) do
+  def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = timeline, ctx) do
     context = Map.merge(ctx, %{})
     threshold = Map.get(context, :match_threshold, 2)
 
-    case TripletMatch.match(int, tl) do
+    case TripletMatch.match(int, timeline) do
       {:active, match_count, {new_prev, _current, new_next}} ->
         cond do
           match_count >= threshold ->
@@ -61,13 +61,13 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
       {:tombstone, :merge} ->
         if Map.get(context, :allow_follow_merge, false) do
-          follow_merge(int, tl, current, context)
+          follow_merge(int, timeline, current, context)
         else
           {:conflict, :merged_away}
         end
 
       {:tombstone, :delete, _left_leg, _right_leg} ->
-        do_relocate(int, tl, current, context)
+        do_relocate(int, timeline, current, context)
     end
   end
 
@@ -80,16 +80,16 @@ defmodule Zongzi.Anchor.NoteTriplet do
   # ---- private ----
 
   # 跟随合并目标重定位
-  defp follow_merge(int, %Timeline{} = tl, dead_seq, _context) do
-    merged_id = Map.get(tl.seq_map, dead_seq)
+  defp follow_merge(int, %Timeline{} = timeline, dead_seq, _context) do
+    merged_id = Map.get(timeline.seq_map, dead_seq)
 
     active_merged =
-      Enum.find(tl.note_order, fn sid ->
-        not MapSet.member?(tl.tombstones, sid) and Map.get(tl.seq_map, sid) == merged_id
+      Enum.find(Timeline.to_list(timeline), fn sid ->
+        not MapSet.member?(timeline.tombstones, sid) and Map.get(timeline.seq_map, sid) == merged_id
       end)
 
     if active_merged do
-      case Query.scrub_triplet(tl, active_merged) do
+      case Query.scrub_triplet(timeline, active_merged) do
         {:ok, triplet} ->
           {:ok,
            {:relocate, %{int | anchor: triplet},
@@ -104,11 +104,11 @@ defmodule Zongzi.Anchor.NoteTriplet do
   end
 
   # relocate：从当前位置（墓碑）向两侧扫描活跃邻居
-  defp do_relocate(int, tl, current, context) do
+  defp do_relocate(int, timeline, current, context) do
     direction = Map.get(context, :orphan_direction, :next)
 
-    prev_cand = Query.scan(tl, current, :prev, active_only: true, limit: 1)
-    next_cand = Query.scan(tl, current, :next, active_only: true, limit: 1)
+    prev_cand = Query.scan(timeline, current, :prev, active_only: true, limit: 1)
+    next_cand = Query.scan(timeline, current, :next, active_only: true, limit: 1)
 
     all =
       case direction do
@@ -118,7 +118,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
     case all do
       [nearest | _] ->
-        case Query.scrub_triplet(tl, nearest) do
+        case Query.scrub_triplet(timeline, nearest) do
           {:ok, triplet} ->
             {:ok,
              {:relocate, %{int | anchor: triplet},

@@ -1,6 +1,6 @@
 defmodule Zongzi.Timeline do
   @moduledoc """
-  轨道序列真实源。
+  轨道序列真实源。双向链表实现。
 
   仅记录音符序列之间的相互关系
 
@@ -9,7 +9,8 @@ defmodule Zongzi.Timeline do
 
   ## 数据字段
 
-  - `note_order` — seq_id 的有序链表，定义轨道的全序
+  - `head` / `tail` — 链表首尾指针（nil 表示空链表）
+  - `nodes` — `%{SeqID.t() => {prev :: SeqID.t() | nil, next :: SeqID.t() | nil}}`，双向链表
   - `seq_map` — seq_id → note_id 的反向查找
   - `tombstones` — 已删除的 seq_id，保留在链表中以维护邻接稳定性
 
@@ -26,220 +27,340 @@ defmodule Zongzi.Timeline do
   ## 查询原语
 
   参见 `Zongzi.Timeline.Query` 模块。
+
+  ## 复杂度
+
+  - seq_id 相对操作（append/split/move）：O(1)
+  - index 相对操作（insert_at/drag）：O(n) walk from head
+  - 查询（neighborhood/scan）：O(k) 只访问需要的邻居数
+  - gc：O(n) 遍历整条链
   """
-  # ROADMAP
-  # - [ ] 添加批量操作
-  # - [ ] 性能优化
 
   alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
 
   @type t :: %__MODULE__{
           track_id: ID.t(),
-          note_order: [SeqID.t()],
+          head: SeqID.t() | nil,
+          tail: SeqID.t() | nil,
+          nodes: %{SeqID.t() => {SeqID.t() | nil, SeqID.t() | nil}},
           seq_map: %{SeqID.t() => ID.t(Note)},
-          tombstones: MapSet.t(SeqID.t())
+          tombstones: MapSet.t(SeqID.t()),
+          next_seq: pos_integer()
         }
 
-  defstruct [:track_id, note_order: [], seq_map: %{}, tombstones: MapSet.new(), next_seq: 1]
+  defstruct [
+    :track_id,
+    head: nil,
+    tail: nil,
+    nodes: %{},
+    seq_map: %{},
+    tombstones: MapSet.new(),
+    next_seq: 1
+  ]
 
-  @doc "创建 Timeline。"
+  @doc "创建空 Timeline。"
   def new(track_id) do
     {:ok, %__MODULE__{track_id: track_id, next_seq: 1}}
   end
 
-  # 在这里写一个 stub
-  # def build(attrs)
-  # 从序列化参数导入到 Timeline
-  # 新 Timeline 对象的 `:next_seq` 应设为 `max(existed seq_id) + 1`
+  @doc "head→tail walk，返回完整 [SeqID.t()]（含墓碑）。替代旧 `note_order` 字段访问。"
+  @spec to_list(t()) :: [SeqID.t()]
+  def to_list(%__MODULE__{head: nil}), do: []
 
-  # ---- 写操作 ----
-  # 也是针对音符序列的操作
+  def to_list(%__MODULE__{nodes: nodes, head: head}) do
+    do_to_list(nodes, head, [])
+  end
 
-  @doc "将音符追加到 Timeline 末尾，自动分配 seq_id。"
+  defp do_to_list(_nodes, nil, acc), do: Enum.reverse(acc)
+
+  defp do_to_list(nodes, seq, acc) do
+    {_, nxt} = Map.fetch!(nodes, seq)
+    do_to_list(nodes, nxt, [seq | acc])
+  end
+
+  @doc "seq_id 是否在链表中。"
+  @spec has_node?(t(), SeqID.t()) :: boolean()
+  def has_node?(%__MODULE__{nodes: nodes}, seq_id), do: Map.has_key?(nodes, seq_id)
+
+  @doc "自持 counter 生成新 SeqID。"
+  @spec generate(t()) :: {SeqID.t(), t()}
+  def generate(%__MODULE__{next_seq: next} = timeline), do: {next, %__MODULE__{timeline | next_seq: next + 1}}
+
+  @doc "将音符追加到 Timeline 末尾。"
   @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()}
-  def insert_note(%__MODULE__{} = tl, %Note{} = note) do
-    {seq_id, tl} =
-      if note.seq_id, do: {note.seq_id, tl}, else: generate(tl)
+  def insert_note(%__MODULE__{} = timeline, %Note{} = note) do
+    {seq_id, timeline} =
+      if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
 
     note = %{note | seq_id: seq_id}
 
-    tl = %__MODULE__{
-      tl
-      | note_order: tl.note_order ++ [seq_id],
-        seq_map: Map.put(tl.seq_map, seq_id, note.id)
+    timeline = %__MODULE__{
+      timeline
+      | seq_map: Map.put(timeline.seq_map, seq_id, note.id)
     }
 
-    {:ok, tl, note}
+    timeline = link_tail(timeline, seq_id)
+    {:ok, timeline, note}
   end
 
   @doc "将音符插入 Timeline 的指定 index（0-based）。"
   @spec insert_note_at(t(), Note.t(), non_neg_integer()) :: {:ok, t(), Note.t()}
-  def insert_note_at(%__MODULE__{} = tl, %Note{} = note, index)
+  def insert_note_at(%__MODULE__{} = timeline, %Note{} = note, index)
       when is_integer(index) and index >= 0 do
-    {seq_id, tl} = if note.seq_id, do: {note.seq_id, tl}, else: generate(tl)
+    {seq_id, timeline} = if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
     note = %{note | seq_id: seq_id}
-    idx = min(index, length(tl.note_order))
-    {left, right} = Enum.split(tl.note_order, idx)
+    timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}
 
-    tl = %__MODULE__{
-      tl
-      | note_order: left ++ [seq_id | right],
-        seq_map: Map.put(tl.seq_map, seq_id, note.id)
-    }
+    timeline =
+      case walk_to_index(timeline, index) do
+        nil -> link_tail(timeline, seq_id)
+        at -> link_before(timeline, seq_id, at)
+      end
 
-    {:ok, tl, note}
+    {:ok, timeline, note}
   end
 
   @doc """
   在 `split_tick` 处切开音符，返回前后两个 Note。
 
-  内部调用 `Note.split/4`，`new_id` 显式注入。
   后半音符自动分配新 seq_id 并 splice 到原音符后。
   """
   @spec split_note(t(), Note.t(), non_neg_integer(), ID.t()) ::
           {:ok, t(), Note.t(), Note.t()} | {:error, term()}
-  def split_note(%__MODULE__{} = tl, %Note{} = note, split_tick, new_id) do
+  def split_note(%__MODULE__{} = timeline, %Note{} = note, split_tick, new_id) do
     seq_id = note.seq_id
 
-    with {:ok, idx} <- note_order_index(tl, seq_id),
-         :ok <- assert_not_tombstone(tl, seq_id),
+    with :ok <- assert_has_node(timeline, seq_id),
+         :ok <- assert_not_tombstone(timeline, seq_id),
          {:ok, before_note, after_note} <- Note.split(note, split_tick, new_id) do
-      {new_seq, tl} = generate(tl)
+      {new_seq, timeline} = generate(timeline)
       before_note = %{before_note | seq_id: seq_id}
       after_note = %{after_note | seq_id: new_seq}
 
-      {left, right} = Enum.split(tl.note_order, idx + 1)
+      timeline = link_after(timeline, new_seq, seq_id)
+      timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, new_seq, timeline.seq_map[seq_id])}
 
-      tl = %__MODULE__{
-        tl
-        | note_order: left ++ [new_seq | right],
-          seq_map: Map.put(tl.seq_map, new_seq, tl.seq_map[seq_id])
-      }
-
-      {:ok, tl, before_note, after_note}
+      {:ok, timeline, before_note, after_note}
     end
   end
 
   @doc """
   拖拽 seq 到 target_seq 的 before/after 位置。
-
-  拖拽墓碑拒绝；target 不存在报错。
   """
   @spec move_note(t(), SeqID.t(), SeqID.t(), :before | :after) :: {:ok, t()} | {:error, term()}
-  def move_note(%__MODULE__{} = tl, seq_id, target_seq, where)
+  def move_note(%__MODULE__{} = timeline, seq_id, target_seq, where)
       when where in [:before, :after] do
-    with :ok <- assert_not_tombstone(tl, seq_id),
-         {:ok, src_idx} <- note_order_index(tl, seq_id),
-         {:ok, tgt_idx} <- note_order_index(tl, target_seq) do
-      without = List.delete_at(tl.note_order, src_idx)
-      # 删除后 target index 可能左移一位
-      tgt_idx2 = if src_idx < tgt_idx, do: tgt_idx - 1, else: tgt_idx
-      insert_idx = if where == :after, do: tgt_idx2 + 1, else: tgt_idx2
-      insert_idx = min(insert_idx, length(without))
-      {left, right} = Enum.split(without, insert_idx)
-      {:ok, %__MODULE__{tl | note_order: left ++ [seq_id | right]}}
-    else
-      {:error, reason} when not is_map(reason) -> {:error, reason}
-      {:error, _} = err -> err
+    with :ok <- assert_not_tombstone(timeline, seq_id),
+         :ok <- assert_has_node(timeline, seq_id),
+         :ok <- assert_has_node(timeline, target_seq) do
+      if seq_id == target_seq do
+        {:ok, timeline}
+      else
+        timeline = unlink(timeline, seq_id)
+
+        timeline =
+          case where do
+            :before -> link_before(timeline, seq_id, target_seq)
+            :after -> link_after(timeline, seq_id, target_seq)
+          end
+
+        {:ok, timeline}
+      end
     end
   end
 
-  @doc "拖拽 seq_id 到新 index。已废弃，建议用基于锚相对语义的 move_note/4。"
+  @deprecated "已废弃，建议用 seq_id 锚相对的 move_note/4。"
+  @doc "拖拽 seq_id 到新 index。"
   @spec drag_note(t(), SeqID.t(), non_neg_integer()) :: {:ok, t()} | {:error, term()}
-  def drag_note(%__MODULE__{} = tl, seq_id, new_index)
+  def drag_note(%__MODULE__{} = timeline, seq_id, new_index)
       when is_integer(new_index) and new_index >= 0 do
-    if MapSet.member?(tl.tombstones, seq_id) do
+    if MapSet.member?(timeline.tombstones, seq_id) do
       {:error, {:is_tombstone, seq_id}}
     else
-      case note_order_index(tl, seq_id) do
-        {:ok, idx} ->
-          without = List.delete_at(tl.note_order, idx)
-          new_index = min(new_index, length(without))
-          {left, right} = Enum.split(without, new_index)
-          {:ok, %__MODULE__{tl | note_order: left ++ [seq_id | right]}}
+      if has_node?(timeline, seq_id) do
+        timeline = unlink(timeline, seq_id)
 
-        {:error, _} = err ->
-          err
+        timeline =
+          case walk_to_index(timeline, new_index) do
+            nil -> link_tail(timeline, seq_id)
+            at -> link_before(timeline, seq_id, at)
+          end
+
+        {:ok, timeline}
+      else
+        {:error, {:not_found, seq_id}}
       end
     end
   end
 
   @doc """
-  合并两个音符。内部调用 `Note.merge/4`，`merged_id` 显式注入。
+  合并两个音符。内部调用 `Note.merge/4`。
 
   seq_id_2 变墓碑，seq_id_1 保留并指向 merged_note_id。
-  返回合并后的 Note（seq_id 继承 note_a.seq_id）。
   """
-  @spec merge_notes(t(), Note.t(), Note.t(), ID.t()) :: {:ok, t(), Note.t()} | {:error, term()}
-  def merge_notes(%__MODULE__{} = tl, %Note{} = note_a, %Note{} = note_b, merged_id) do
+  @spec merge_notes(t(), Note.t(), Note.t(), ID.t(Note.t())) :: {:ok, t(), Note.t()} | {:error, term()}
+  def merge_notes(%__MODULE__{} = timeline, %Note{} = note_a, %Note{} = note_b, merged_id) do
     s1 = note_a.seq_id
     s2 = note_b.seq_id
 
-    with {:ok, _} <- note_order_index(tl, s1),
-         {:ok, _} <- note_order_index(tl, s2),
-         :ok <- assert_not_tombstone(tl, s1),
-         :ok <- assert_not_tombstone(tl, s2),
+    with :ok <- assert_has_node(timeline, s1),
+         :ok <- assert_has_node(timeline, s2),
+         :ok <- assert_not_tombstone(timeline, s1),
+         :ok <- assert_not_tombstone(timeline, s2),
          {:ok, merged} <- Note.merge(note_a, note_b, merged_id) do
       merged = %{merged | seq_id: s1}
 
-      tl = %__MODULE__{
-        tl
-        | seq_map: Map.put(tl.seq_map, s1, merged_id),
-          tombstones: MapSet.put(tl.tombstones, s2)
+      timeline = %__MODULE__{
+        timeline
+        | seq_map: Map.put(timeline.seq_map, s1, merged_id),
+          tombstones: MapSet.put(timeline.tombstones, s2)
       }
 
-      {:ok, tl, merged}
+      {:ok, timeline, merged}
     end
   end
 
-  @doc "删除 seq_id → 墓碑。"
+  @doc "删除 seq_id → 墓碑（保留在链表中以维护邻接稳定性）。"
   @spec delete_note(t(), SeqID.t()) :: {:ok, t()} | {:error, term()}
-  def delete_note(%__MODULE__{} = tl, seq_id) do
-    with {:ok, _} <- note_order_index(tl, seq_id),
-         :ok <- assert_not_tombstone(tl, seq_id) do
-      tl = %__MODULE__{
-        tl
-        | seq_map: Map.delete(tl.seq_map, seq_id),
-          tombstones: MapSet.put(tl.tombstones, seq_id)
+  def delete_note(%__MODULE__{} = timeline, seq_id) do
+    with :ok <- assert_has_node(timeline, seq_id),
+         :ok <- assert_not_tombstone(timeline, seq_id) do
+      timeline = %__MODULE__{
+        timeline
+        | seq_map: Map.delete(timeline.seq_map, seq_id),
+          tombstones: MapSet.put(timeline.tombstones, seq_id)
       }
 
-      {:ok, tl}
+      {:ok, timeline}
     end
   end
 
-  # 和音符操作无关的更新
-
-  @doc "回收无 intervention 引用的墓碑。"
+  @doc "回收无 intervention 引用的墓碑，将其从链表中移除。"
   @spec gc(t(), [Zongzi.Intervention.t()]) :: t()
-  def gc(%__MODULE__{} = tl, interventions) do
+  def gc(%__MODULE__{} = timeline, interventions) do
     live_refs =
       interventions
-      |> Enum.flat_map(&(&1.declaration.referenced_seqs(&1)))
+      |> Enum.flat_map(& &1.declaration.referenced_seqs(&1))
       |> MapSet.new()
 
-    unreachable = tl.tombstones |> MapSet.difference(live_refs)
+    unreachable = MapSet.difference(timeline.tombstones, live_refs)
 
+    Enum.reduce(unreachable, timeline, fn seq, %__MODULE__{} = acc ->
+      %__MODULE__{acc | tombstones: MapSet.delete(acc.tombstones, seq)}
+      |> unlink(seq)
+    end)
+  end
+
+  # ---- Query 用遍历原语 ----
+
+  @doc false
+  @spec node_next(t(), SeqID.t()) :: SeqID.t() | nil
+  def node_next(%__MODULE__{nodes: nodes}, seq_id) do
+    case Map.fetch(nodes, seq_id) do
+      {:ok, {_, next}} -> next
+      :error -> nil
+    end
+  end
+
+  @doc false
+  @spec node_prev(t(), SeqID.t()) :: SeqID.t() | nil
+  def node_prev(%__MODULE__{nodes: nodes}, seq_id) do
+    case Map.fetch(nodes, seq_id) do
+      {:ok, {prev, _}} -> prev
+      :error -> nil
+    end
+  end
+
+  # ---- Private: 链表原语 ----
+
+  defp link_tail(%__MODULE__{head: nil} = timeline, seq_id) do
     %__MODULE__{
-      tl
-      | note_order: Enum.reject(tl.note_order, &MapSet.member?(unreachable, &1)),
-        tombstones: Enum.reduce(unreachable, tl.tombstones, &MapSet.delete(&2, &1))
+      timeline
+      | head: seq_id,
+        tail: seq_id,
+        nodes: Map.put(timeline.nodes, seq_id, {nil, nil})
     }
   end
 
-  # ---- 共享 helper ----
+  defp link_tail(%__MODULE__{tail: tail} = timeline, seq_id) do
+    node = {tail, nil}
+    timeline = %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, node)}
+    timeline = put_next(timeline, tail, seq_id)
+    %__MODULE__{timeline | tail: seq_id}
+  end
 
-  @doc "自持 counter 生成新 SeqID。"
-  @spec generate(t()) :: {SeqID.t(), t()}
-  def generate(%__MODULE__{next_seq: next} = tl), do: {next, %__MODULE__{tl | next_seq: next + 1}}
+  defp link_after(%__MODULE__{} = timeline, seq_id, after_seq) do
+    {_, nxt} = Map.fetch!(timeline.nodes, after_seq)
+    node = {after_seq, nxt}
+    timeline = %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, node)}
+    timeline = put_next(timeline, after_seq, seq_id)
 
-  @doc false
-  @spec note_order_index(t(), SeqID.t()) ::
-          {:ok, non_neg_integer()} | {:error, {:not_found, SeqID.t()}}
-  def note_order_index(%__MODULE__{note_order: order}, seq_id) do
-    case Enum.find_index(order, &(&1 == seq_id)) do
-      nil -> {:error, {:not_found, seq_id}}
-      idx -> {:ok, idx}
+    if nxt do
+      put_prev(timeline, nxt, seq_id)
+    else
+      %__MODULE__{timeline | tail: seq_id}
     end
+  end
+
+  defp link_before(%__MODULE__{} = timeline, seq_id, before_seq) do
+    {prv, _} = Map.fetch!(timeline.nodes, before_seq)
+    node = {prv, before_seq}
+    timeline = %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, node)}
+    timeline = put_prev(timeline, before_seq, seq_id)
+
+    if prv do
+      put_next(timeline, prv, seq_id)
+    else
+      %__MODULE__{timeline | head: seq_id}
+    end
+  end
+
+  defp unlink(%__MODULE__{} = timeline, seq_id) do
+    {prv, nxt} = Map.fetch!(timeline.nodes, seq_id)
+    timeline = %__MODULE__{timeline | nodes: Map.delete(timeline.nodes, seq_id)}
+
+    cond do
+      prv && nxt ->
+        timeline |> put_next(prv, nxt) |> put_prev(nxt, prv)
+
+      prv ->
+        %__MODULE__{put_next(timeline, prv, nil) | tail: prv}
+
+      nxt ->
+        %__MODULE__{put_prev(timeline, nxt, nil) | head: nxt}
+
+      true ->
+        %__MODULE__{timeline | head: nil, tail: nil}
+    end
+  end
+
+  defp put_next(%__MODULE__{} = timeline, seq_id, new_next) do
+    {prv, _} = Map.fetch!(timeline.nodes, seq_id)
+    %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, {prv, new_next})}
+  end
+
+  defp put_prev(%__MODULE__{} = timeline, seq_id, new_prev) do
+    {_, nxt} = Map.fetch!(timeline.nodes, seq_id)
+    %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, {new_prev, nxt})}
+  end
+
+  defp walk_to_index(%__MODULE__{head: nil}, _index), do: nil
+
+  defp walk_to_index(%__MODULE__{head: head, nodes: nodes}, index) do
+    do_walk_to_index(nodes, head, 0, index)
+  end
+
+  defp do_walk_to_index(_nodes, nil, _cur, _target), do: nil
+
+  defp do_walk_to_index(_nodes, seq, cur, target) when cur >= target, do: seq
+
+  defp do_walk_to_index(nodes, seq, cur, target) do
+    {_, nxt} = Map.fetch!(nodes, seq)
+    do_walk_to_index(nodes, nxt, cur + 1, target)
+  end
+
+  defp assert_has_node(timeline, seq_id) do
+    if has_node?(timeline, seq_id), do: :ok, else: {:error, {:not_found, seq_id}}
   end
 
   defp assert_not_tombstone(%__MODULE__{tombstones: ts}, seq_id) do

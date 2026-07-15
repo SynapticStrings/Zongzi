@@ -28,7 +28,7 @@ defmodule Zongzi.TimelineTest do
       track_id = "track_01"
       {:ok, tl} = Timeline.new(track_id)
       assert tl.track_id == track_id
-      assert tl.note_order == []
+      assert Timeline.to_list(tl) == []
       assert tl.seq_map == %{}
       assert tl.tombstones == MapSet.new()
     end
@@ -61,7 +61,7 @@ defmodule Zongzi.TimelineTest do
       {:ok, tl} = Timeline.new("track_01")
 
       {:ok, tl, note} = Timeline.insert_note(tl, note)
-      assert tl.note_order == [note.seq_id]
+      assert Timeline.to_list(tl) == [note.seq_id]
       assert tl.seq_map[note.seq_id] == note.id
     end
 
@@ -75,7 +75,7 @@ defmodule Zongzi.TimelineTest do
       {:ok, tl, n2} = Timeline.insert_note(tl, n2)
       {:ok, tl, n3} = Timeline.insert_note(tl, n3)
 
-      assert tl.note_order == [n1.seq_id, n2.seq_id, n3.seq_id]
+      assert Timeline.to_list(tl) == [n1.seq_id, n2.seq_id, n3.seq_id]
     end
 
     test "已有 seq_id 的不重新生成" do
@@ -92,20 +92,20 @@ defmodule Zongzi.TimelineTest do
   describe "insert_note_at/3" do
     test "中间插入" do
       {:ok, tl, _notes} = build_timeline_3()
-      [a, b, c] = tl.note_order
+      [a, b, c] = Timeline.to_list(tl)
       {:ok, note} = build_note(start_tick: 480)
 
       {:ok, tl, note} = Timeline.insert_note_at(tl, note, 1)
-      assert tl.note_order == [a, note.seq_id, b, c]
+      assert Timeline.to_list(tl) == [a, note.seq_id, b, c]
     end
 
     test "插入到开头" do
       {:ok, tl, _notes} = build_timeline_3()
-      [a, b, c] = tl.note_order
+      [a, b, c] = Timeline.to_list(tl)
       {:ok, note} = build_note(start_tick: 0)
 
       {:ok, tl, note} = Timeline.insert_note_at(tl, note, 0)
-      assert tl.note_order == [note.seq_id, a, b, c]
+      assert Timeline.to_list(tl) == [note.seq_id, a, b, c]
     end
 
     test "超出范围插入末尾" do
@@ -113,7 +113,7 @@ defmodule Zongzi.TimelineTest do
       {:ok, note} = build_note(start_tick: 1440)
 
       {:ok, tl, note} = Timeline.insert_note_at(tl, note, 999)
-      assert List.last(tl.note_order) == note.seq_id
+      assert List.last(Timeline.to_list(tl)) == note.seq_id
     end
   end
 
@@ -133,7 +133,7 @@ defmodule Zongzi.TimelineTest do
       split_tick = 720
       new_id = Zongzi.Util.ID.generate_id("N_")
       {:ok, tl, before_note, after_note} = Timeline.split_note(tl, n2, split_tick, new_id)
-      assert tl.note_order == [n1.seq_id, before_note.seq_id, after_note.seq_id, n3.seq_id]
+      assert Timeline.to_list(tl) == [n1.seq_id, before_note.seq_id, after_note.seq_id, n3.seq_id]
       assert before_note.seq_id == n2.seq_id
       assert before_note.start_tick == 480
       assert before_note.duration_tick == 240
@@ -156,23 +156,23 @@ defmodule Zongzi.TimelineTest do
   describe "drag_note/3" do
     test "拖拽到末尾" do
       {:ok, tl, _notes} = build_timeline_3()
-      [a, b, c] = tl.note_order
+      [a, b, c] = Timeline.to_list(tl)
 
       {:ok, tl} = Timeline.drag_note(tl, b, 2)
-      assert tl.note_order == [a, c, b]
+      assert Timeline.to_list(tl) == [a, c, b]
     end
 
     test "拖拽到开头" do
       {:ok, tl, _notes} = build_timeline_3()
-      [a, b, c] = tl.note_order
+      [a, b, c] = Timeline.to_list(tl)
 
       {:ok, tl} = Timeline.drag_note(tl, c, 0)
-      assert tl.note_order == [c, a, b]
+      assert Timeline.to_list(tl) == [c, a, b]
     end
 
     test "拖拽墓碑拒绝" do
       {:ok, tl, [_n1, n2, n3]} = build_timeline_3()
-      [_a, _b, c] = tl.note_order
+      [_a, _b, c] = Timeline.to_list(tl)
       {:ok, tl, _merged} = Timeline.merge_notes(tl, n2, n3, "merged_note")
 
       assert Timeline.drag_note(tl, c, 0) == {:error, {:is_tombstone, c}}
@@ -189,18 +189,18 @@ defmodule Zongzi.TimelineTest do
   describe "merge_notes/4" do
     test "合并两个相邻音符：前保留后墓碑" do
       {:ok, tl, [_n1, n2, n3]} = build_timeline_3()
-      [a, b, c] = tl.note_order
+      [a, b, c] = Timeline.to_list(tl)
 
       {:ok, tl, _merged} = Timeline.merge_notes(tl, n2, n3, "merged_bc")
 
       assert tl.seq_map[b] == "merged_bc"
       assert MapSet.member?(tl.tombstones, c)
-      assert tl.note_order == [a, b, c]
+      assert Timeline.to_list(tl) == [a, b, c]
     end
 
     test "合并已墓碑拒绝" do
       {:ok, tl, [_n1, n2, n3]} = build_timeline_3()
-      [_a, _b, c] = tl.note_order
+      [_a, _b, c] = Timeline.to_list(tl)
       {:ok, tl, _merged} = Timeline.merge_notes(tl, n2, n3, "merged")
       assert Timeline.merge_notes(tl, n3, n2, "bad") == {:error, {:is_tombstone, c}}
     end

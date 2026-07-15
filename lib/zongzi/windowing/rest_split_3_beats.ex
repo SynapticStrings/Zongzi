@@ -30,6 +30,7 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
   @behaviour Zongzi.Windowing.Strategy
 
   alias Zongzi.Windowing.{Context, Segment}
+  alias Zongzi.Timeline
   alias Zongzi.Timeline.Query
   alias Zongzi.Intervention
 
@@ -73,10 +74,10 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
 
   # ---- note cores ----
 
-  defp build_note_spans(%Context{timeline: tl, notes_by_seq: notes}) do
+  defp build_note_spans(%Context{timeline: timeline, notes_by_seq: notes}) do
     active =
-      tl.note_order
-      |> Enum.filter(&Query.active?(tl, &1))
+      Timeline.to_list(timeline)
+      |> Enum.filter(&Query.active?(timeline, &1))
 
     missing =
       Enum.reject(active, &Map.has_key?(notes, &1))
@@ -103,8 +104,8 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
 
   # ---- interventions by channel ----
 
-  defp intervention_spans(ivs) do
-    ivs
+  defp intervention_spans(intervs) do
+    intervs
     |> Enum.map(&expand_intervention/1)
     |> Enum.reject(&is_nil/1)
   end

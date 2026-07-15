@@ -7,7 +7,7 @@ defmodule Zongzi.EngineContractTest do
     @impl true
     def check(req) do
       segments = Map.fetch!(req, :segments)
-      ivs = Map.get(req, :interventions, [])
+      intervs = Map.get(req, :interventions, [])
       params = Map.get(req, :params, %{})
 
       with :ok <- validate_params(params) do
@@ -15,7 +15,7 @@ defmodule Zongzi.EngineContractTest do
          %{
            phase: :check,
            n_segments: length(segments),
-           resolved: ivs,
+           resolved: intervs,
            conflicts: [],
            params: params
          }}

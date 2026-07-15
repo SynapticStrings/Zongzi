@@ -22,8 +22,8 @@ defmodule Zongzi.Anchor.TripletMatch do
           | {:tombstone, :merge | :delete}
           | {:tombstone, :delete, SeqID.t() | nil, SeqID.t() | nil}
           | {:conflict, term()}
-  def match(%Intervention{anchor: {old_prev, current, old_next}}, %Timeline{} = tl) do
-    case Query.status(tl, current) do
+  def match(%Intervention{anchor: {old_prev, current, old_next}}, %Timeline{} = timeline) do
+    case Query.status(timeline, current) do
       :missing ->
         {:tombstone, :delete, old_prev, old_next}
 
@@ -34,7 +34,7 @@ defmodule Zongzi.Anchor.TripletMatch do
         {:tombstone, :delete, old_prev, old_next}
 
       :active ->
-        nb = Query.neighborhood(tl, current, active_only: false, count: 1)
+        nb = Query.neighborhood(timeline, current, active_only: false, count: 1)
 
         new_prev =
           case nb.left do

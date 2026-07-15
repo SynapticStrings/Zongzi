@@ -15,7 +15,7 @@ defmodule Zongzi.Timeline.SeqID do
 
   ## 用途
 
-  - Timeline.note_order 的链表节点标识
+  - Timeline 双向链表的节点标识
   - Intervention anchor 的锚定目标
   - Note 删除后的墓碑标记
 

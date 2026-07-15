@@ -203,14 +203,14 @@ defmodule Zongzi.Intervention.SpikeTest do
 
     {:ok, tl} = Timeline.delete_note(tl, b)
     assert MapSet.size(tl.tombstones) == 1
-    assert length(tl.note_order) == 4
+    assert length(Timeline.to_list(tl)) == 4
 
     # intervention 锚在 c（不引用 b）→ GC 回收 b
     int = make_timing_int({a, c, d}, %{0 => 0.0})
     tl = Timeline.gc(tl, [int])
 
     assert MapSet.size(tl.tombstones) == 0
-    assert tl.note_order == [a, c, d]
+    assert Timeline.to_list(tl) == [a, c, d]
   end
 
   @tag :spike
@@ -225,7 +225,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     tl = Timeline.gc(tl, [int])
 
     assert MapSet.size(tl.tombstones) == 1
-    assert length(tl.note_order) == 4
+    assert length(Timeline.to_list(tl)) == 4
   end
 
   # ============================================================

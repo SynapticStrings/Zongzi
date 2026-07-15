@@ -37,11 +37,11 @@ defmodule Zongzi.Anchor.ScoredHost do
   @type triplet :: {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}
 
   @impl true
-  def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = tl, ctx) do
+  def rebase(%Intervention{anchor: {_old_prev, current, _old_next}} = int, %Timeline{} = timeline, ctx) do
     context = Map.merge(ctx, %{})
     threshold = Map.get(context, :match_threshold, 2)
 
-    case TripletMatch.match(int, tl) do
+    case TripletMatch.match(int, timeline) do
       {:active, match_count, {new_prev, _current, new_next}} ->
         cond do
           match_count >= threshold ->
@@ -57,13 +57,13 @@ defmodule Zongzi.Anchor.ScoredHost do
 
       {:tombstone, :merge} ->
         if Map.get(context, :allow_follow_merge, false) do
-          NoteTriplet.rebase(int, tl, context)
+          NoteTriplet.rebase(int, timeline, context)
         else
           {:conflict, :merged_away}
         end
 
       {:tombstone, :delete, _left_leg, _right_leg} ->
-        do_scored_relocate(int, tl, current, context)
+        do_scored_relocate(int, timeline, current, context)
     end
   end
 
@@ -74,11 +74,11 @@ defmodule Zongzi.Anchor.ScoredHost do
   def referenced_seqs(_), do: []
 
   @impl true
-  def choose_host(focus, tl, context, opts) do
+  def choose_host(focus, timeline, context, opts) do
     scan_limit = Keyword.get(opts, :scan_limit, 4)
 
     neighbors =
-      Query.neighborhood(tl, focus, active_only: true, count: scan_limit)
+      Query.neighborhood(timeline, focus, active_only: true, count: scan_limit)
 
     candidates = Enum.map(neighbors.left ++ neighbors.right, &{&1.seq_id, &1.hops_from_focus})
 
@@ -100,10 +100,10 @@ defmodule Zongzi.Anchor.ScoredHost do
 
   # ---- private ----
 
-  defp do_scored_relocate(intervention, tl, current, context) do
-    case choose_host(current, tl, context, []) do
+  defp do_scored_relocate(intervention, timeline, current, context) do
+    case choose_host(current, timeline, context, []) do
       {:ok, best, meta} ->
-        case Query.scrub_triplet(tl, best) do
+        case Query.scrub_triplet(timeline, best) do
           {:ok, triplet} ->
             {:ok,
              {:relocate, %{intervention | anchor: triplet},
