@@ -13,10 +13,24 @@ defmodule Zongzi.Timeline do
   - `seq_map` — seq_id → note_id 的反向查找
   - `tombstones` — 已删除的 seq_id，保留在链表中以维护邻接稳定性
 
+  ## 更新记录的操作
+
+  - 在末尾添加音符
+  - 在序列的特定位置添加音符（基于目前存在的音符序列的位置）
+  - 切开/合并特定音符
+  - 可能需要变更音符排序的拖拽音符
+  - 删除音符
+
+  以上操作均指单个音符。
+
   ## 查询原语
 
   参见 `Zongzi.Timeline.Query` 模块。
   """
+  # ROADMAP
+  # - [ ] 添加批量操作
+  # - [ ] 性能优化
+
   alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
 
   @type t :: %__MODULE__{
@@ -28,17 +42,15 @@ defmodule Zongzi.Timeline do
 
   defstruct [:track_id, note_order: [], seq_map: %{}, tombstones: MapSet.new(), next_seq: 1]
 
-  @doc """
-  创建 Timeline。
-
-  ## 选项
-
-  - `:next_seq` — 反序列化时传入，应设为 `max(existed seq_id) + 1`。新建时留空（默认 1）。
-  """
-  def new(track_id, opts \\ []) do
-    next_seq = Keyword.get(opts, :next_seq, 1)
-    {:ok, %__MODULE__{track_id: track_id, next_seq: next_seq}}
+  @doc "创建 Timeline。"
+  def new(track_id) do
+    {:ok, %__MODULE__{track_id: track_id, next_seq: 1}}
   end
+
+  # 在这里写一个 stub
+  # def build(attrs)
+  # 从序列化参数导入到 Timeline
+  # 新 Timeline 对象的 `:next_seq` 应设为 `max(existed seq_id) + 1`
 
   # ---- 写操作 ----
   # 也是针对音符序列的操作

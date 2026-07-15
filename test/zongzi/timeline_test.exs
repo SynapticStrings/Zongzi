@@ -46,9 +46,9 @@ defmodule Zongzi.TimelineTest do
       assert id2 == id1 + 1
     end
 
-    test "从指定 next_seq 起算（反序列化场景）" do
-      {:ok, tl} = Timeline.new("t1", next_seq: 100)
-      {id, _tl} = Timeline.generate(tl)
+    test "从指定 next_seq 起算" do
+      {:ok, tl} = Timeline.new("t1")
+      {id, _tl} = %{tl | next_seq: 100} |> Timeline.generate()
       assert id == 100
     end
   end

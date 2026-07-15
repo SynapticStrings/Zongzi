@@ -1,8 +1,8 @@
 defmodule Zongzi.Timeline.Query do
   @moduledoc """
-  Timeline 的查询原语。纯读操作，无副作用。
+  纯读操作且无副作用的 Timeline 的查询原语。
 
-  Strategy 和 Windowing 层使用这些原语来判定锚存活、选宿主、切窗口。
+  下游模块（如 Strategy 和 Windowing）使用这些原语来判定锚存活、选宿主、切窗口。
 
   ## 不变量
 
@@ -16,16 +16,21 @@ defmodule Zongzi.Timeline.Query do
   alias Zongzi.Timeline
   alias Zongzi.Timeline.{SeqID, Neighborhood}
 
-  @typedoc "格子状态"
-  @type cell_status :: :active | :merge_tombstone | :delete_tombstone | :missing
+  @typedoc """
+  格子状态。
 
-  @doc """
-  格子状态。仅用 tombstones + seq_map（O(1)），不扫 note_order。
 
   - `:active` — 非墓碑且 seq_map 有条目
   - `:merge_tombstone` — 墓碑且 seq_map 仍有（merge 保留映射）
   - `:delete_tombstone` — 墓碑且 seq_map 已无
   - `:missing` — 两表均无（已 gc 或从未插入）
+  """
+  @type cell_status :: :active | :merge_tombstone | :delete_tombstone | :missing
+
+  @doc """
+  获取给定 SeqID 的格子状态。
+
+  仅用 tombstones + seq_map（复杂度 O(1)），不扫 note_order。
   """
   @spec status(Timeline.t(), SeqID.t()) :: cell_status()
   def status(%Timeline{} = tl, seq_id) do
@@ -41,7 +46,7 @@ defmodule Zongzi.Timeline.Query do
     end
   end
 
-  @doc "是否为可承载锚点的活格子。"
+  @doc "是否为可承载锚点的活格子，仅在 `:active` 下返回真。"
   @spec active?(Timeline.t(), SeqID.t()) :: boolean()
   def active?(%Timeline{} = tl, seq_id), do: status(tl, seq_id) == :active
 
