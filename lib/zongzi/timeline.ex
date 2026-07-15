@@ -58,12 +58,21 @@ defmodule Zongzi.Timeline do
     next_seq: 1
   ]
 
-  @doc "创建空 Timeline。"
+  @doc """
+  创建空 Timeline。
+
+  ## 用例
+
+      iex> new("Track-a")
+      {:ok, %Timeline{track_id: "Track-a", next_seq: 1}}
+  """
   def new(track_id) do
     {:ok, %__MODULE__{track_id: track_id, next_seq: 1}}
   end
 
-  @doc "head→tail walk，返回完整 [SeqID.t()]（含墓碑）。替代旧 `note_order` 字段访问。"
+  @doc """
+  head→tail walk，返回完整 [SeqID.t()]（含墓碑）。替代旧 `note_order` 字段访问。
+  """
   @spec to_list(t()) :: [SeqID.t()]
   def to_list(%__MODULE__{head: nil}), do: []
 
@@ -82,7 +91,17 @@ defmodule Zongzi.Timeline do
   @spec has_node?(t(), SeqID.t()) :: boolean()
   def has_node?(%__MODULE__{nodes: nodes}, seq_id), do: Map.has_key?(nodes, seq_id)
 
-  @doc "自持 counter 生成新 SeqID。"
+  @doc """
+  基于 Timeline 自持的计数器生成新 SeqID。
+
+  ## 用例
+
+      iex> new("Track-a") |> elem(1) |> generate()
+      {1, %Zongzi.Timeline{track_id: "Track-a", next_seq: 2}}
+
+      iex> %Zongzi.Timeline{track_id: "Track-b", next_seq: 2} |> generate()
+      {2, %Zongzi.Timeline{track_id: "Track-b", next_seq: 3}}
+  """
   @spec generate(t()) :: {SeqID.t(), t()}
   def generate(%__MODULE__{next_seq: next} = timeline), do: {next, %__MODULE__{timeline | next_seq: next + 1}}
 
@@ -103,21 +122,28 @@ defmodule Zongzi.Timeline do
     {:ok, timeline, note}
   end
 
-  @doc "将音符插入 Timeline 的指定 index（0-based）。"
-  @spec insert_note_at(t(), Note.t(), non_neg_integer()) :: {:ok, t(), Note.t()}
-  def insert_note_at(%__MODULE__{} = timeline, %Note{} = note, index)
-      when is_integer(index) and index >= 0 do
-    {seq_id, timeline} = if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
-    note = %{note | seq_id: seq_id}
-    timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}
+  @doc "在 target_seq 之前插入音符。"
+  @spec insert_note_before(t(), Note.t(), SeqID.t()) :: {:ok, t(), Note.t()} | {:error, term()}
+  def insert_note_before(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
+    with :ok <- assert_has_node(timeline, target_seq) do
+      {seq_id, timeline} = if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
+      note = %{note | seq_id: seq_id}
+      timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}
+      timeline = link_before(timeline, seq_id, target_seq)
+      {:ok, timeline, note}
+    end
+  end
 
-    timeline =
-      case walk_to_index(timeline, index) do
-        nil -> link_tail(timeline, seq_id)
-        at -> link_before(timeline, seq_id, at)
-      end
-
-    {:ok, timeline, note}
+  @doc "在 target_seq 之后插入音符。"
+  @spec insert_note_after(t(), Note.t(), SeqID.t()) :: {:ok, t(), Note.t()} | {:error, term()}
+  def insert_note_after(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
+    with :ok <- assert_has_node(timeline, target_seq) do
+      {seq_id, timeline} = if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
+      note = %{note | seq_id: seq_id}
+      timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}
+      timeline = link_after(timeline, seq_id, target_seq)
+      {:ok, timeline, note}
+    end
   end
 
   @doc """
@@ -165,30 +191,6 @@ defmodule Zongzi.Timeline do
           end
 
         {:ok, timeline}
-      end
-    end
-  end
-
-  @deprecated "已废弃，建议用 seq_id 锚相对的 move_note/4。"
-  @doc "拖拽 seq_id 到新 index。"
-  @spec drag_note(t(), SeqID.t(), non_neg_integer()) :: {:ok, t()} | {:error, term()}
-  def drag_note(%__MODULE__{} = timeline, seq_id, new_index)
-      when is_integer(new_index) and new_index >= 0 do
-    if MapSet.member?(timeline.tombstones, seq_id) do
-      {:error, {:is_tombstone, seq_id}}
-    else
-      if has_node?(timeline, seq_id) do
-        timeline = unlink(timeline, seq_id)
-
-        timeline =
-          case walk_to_index(timeline, new_index) do
-            nil -> link_tail(timeline, seq_id)
-            at -> link_before(timeline, seq_id, at)
-          end
-
-        {:ok, timeline}
-      else
-        {:error, {:not_found, seq_id}}
       end
     end
   end
@@ -342,21 +344,6 @@ defmodule Zongzi.Timeline do
   defp put_prev(%__MODULE__{} = timeline, seq_id, new_prev) do
     {_, nxt} = Map.fetch!(timeline.nodes, seq_id)
     %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, {new_prev, nxt})}
-  end
-
-  defp walk_to_index(%__MODULE__{head: nil}, _index), do: nil
-
-  defp walk_to_index(%__MODULE__{head: head, nodes: nodes}, index) do
-    do_walk_to_index(nodes, head, 0, index)
-  end
-
-  defp do_walk_to_index(_nodes, nil, _cur, _target), do: nil
-
-  defp do_walk_to_index(_nodes, seq, cur, target) when cur >= target, do: seq
-
-  defp do_walk_to_index(nodes, seq, cur, target) do
-    {_, nxt} = Map.fetch!(nodes, seq)
-    do_walk_to_index(nodes, nxt, cur + 1, target)
   end
 
   defp assert_has_node(timeline, seq_id) do

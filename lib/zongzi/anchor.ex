@@ -31,7 +31,7 @@ defmodule Zongzi.Anchor do
       # Timeline 状态落地（insert/split/merge/delete）│
       #     │                                         │
       #     ▼                                         │
-      # Anchor.rebase_all(ints, tl, ctx)  ←── Caller 注入 Context
+      # Anchor.rebase_all(ints, timeline, ctx)  ←── Caller 注入 Context
       #     │
       #     ├─ survived [Intervention.t()] ──→ 可进 render request
       #     │

@@ -135,11 +135,11 @@ defmodule Zongzi.Intervention.SpikeTest do
 
   @tag :spike
   test "drag 破坏邻接 → conflict" do
-    {:ok, tl, [a, b, c, _d], _notes} = build_4()
+    {:ok, tl, [a, b, c, d], _notes} = build_4()
     int = make_timing_int({a, b, c}, %{0 => 0.0, 1 => 0.12})
 
     # drag b 到末尾 → [a, c, d, b]，adjacent(b) = {d, b, nil}
-    {:ok, tl} = Timeline.drag_note(tl, b, 3)
+    {:ok, tl} = Timeline.move_note(tl, b, d, :after)
     # old {a,b,c}: prev a!=d + current b✓ + next c!=nil = 1/3
     assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :adjacency_lost}
   end

@@ -63,7 +63,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
     test "drag 后只剩 current 匹配" do
       {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
-      {:ok, tl} = Timeline.drag_note(tl, b, 2)
+      {:ok, tl} = Timeline.move_note(tl, b, c, :after)
       assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :adjacency_lost}
     end
   end

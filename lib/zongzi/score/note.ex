@@ -52,8 +52,16 @@ defmodule Zongzi.Score.Note do
   @doc """
   创建新音符。
 
-  `seq_id` 默认为 nil——由 `Timeline.insert_note/2` 分配。
+  `seq_id` 默认由下游 `Timeline.insert_note/2` 分配，
   反序列化时可以显式传入已有的 `:seq_id`。
+
+  ## 用例
+
+      iex> new(%{id: "Note_12345"})
+      {:ok, %Zongzi.Score.Note{id: "Note_12345"}}
+
+      iex> new(%{})
+      {:error, {:missing_id, "Note_"}}
   """
   def new(attrs) do
     with {:ok, normalized} <- normalize_attrs(attrs, @keys) do
@@ -94,7 +102,18 @@ defmodule Zongzi.Score.Note do
 
   # ---- 业务函数 ----
 
-  @doc "拖拽音符到新的高度与 start_tick"
+  @doc """
+  拖拽音符到新的高度与 start_tick 。
+
+  进实现音符层面的修改，其他约束（不得与现有音符重叠）在下游实现。
+
+  ## 选项
+
+  允许 Map 或关键字，但仅允许是以下两个键中的一个或两个。
+
+  - `:start_tick` 音符将要被拖拽到的新起始时刻
+  - `:key` 音符将要被拖拽到的新音高
+  """
   @spec drag_note(
           t(),
           %{optional(:start_tick) => Tick.t(), optional(:key) => Key.t()}
@@ -112,20 +131,23 @@ defmodule Zongzi.Score.Note do
     end
   end
 
-  @doc "拖拽时长"
+  @doc "拖拽时长。"
   @spec drag_duration(t(), non_neg_integer()) :: {:ok, t()} | {:error, term()}
   def drag_duration(note, new_duraion) do
     update(note, duration_tick: new_duraion)
   end
 
-  @doc "修改歌词"
+  @doc "修改歌词。"
   @spec update_lyric(t(), String.t() | nil) :: {:ok, t()} | {:error, term()}
   def update_lyric(note, new_lyric) do
     update(note, lyric: new_lyric)
   end
 
-  # 标注是 UI 的标注，引擎以及插件不会读取
-  @doc "修改标注"
+  @doc """
+  修改标注。
+
+  需要注意的是，标注是 UI 的标注，引擎以及插件不会读取
+  """
   @spec update_annotation(t(), String.t() | nil) :: {:ok, t()} | {:error, term()}
   def update_annotation(note, new_annotation) do
     case new_annotation do
@@ -146,7 +168,7 @@ defmodule Zongzi.Score.Note do
   @doc """
   读取元数据。
 
-  * get_metadata/1 返回全部（带 ok tuple）
+  * get_metadata/1 返回全部（一直带 ok tuple）
   * get_metadata/2 返回 ok_or_err
   """
   @spec get_metadata(t()) :: {:ok, metadata()}
@@ -162,8 +184,11 @@ defmodule Zongzi.Score.Note do
     end
   end
 
-  @doc "移除元数据"
-  # 应用于插件生命周期结束或序列化
+  @doc """
+  移除元数据。
+
+  一般用于插件生命周期结束或序列化。
+  """
   @spec remove_metadata(t(), :all | [binary()]) :: {:ok, t()}
   def remove_metadata(note, :all), do: update(note, metadata: %{})
 
@@ -176,7 +201,7 @@ defmodule Zongzi.Score.Note do
   @doc """
   在指定绝对 tick 位置切开音符。
 
-  返回 `{:ok, [note_before, note_after]}`，后面的音符为新 ID。
+  返回 `{:ok, note_before, note_after}`，后面的音符为新 ID。
   `split_tick` 必须在音符内部（严格大于 start_tick，严格小于 end_tick）。
 
   `attrs` 可选，用于覆盖切分后后部音符的字段（如不同的歌词）。
@@ -259,6 +284,7 @@ defmodule Zongzi.Score.Note do
          end}
       end)
 
+    # 我懒得考虑什么复杂的了
     annotation_merger =
       Keyword.get(opts, :annotation_merger, fn note1, note2 ->
         {:ok, note1.annotation || note2.annotation}

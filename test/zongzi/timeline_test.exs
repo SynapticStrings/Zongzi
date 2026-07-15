@@ -5,6 +5,8 @@ defmodule Zongzi.TimelineTest do
   alias Zongzi.Score.{Note, Key}
   alias Zongzi.Timeline
 
+  doctest Zongzi.Timeline, [import: true]
+
   # ---- helpers ----
 
   defp build_note(attrs) do
@@ -87,32 +89,43 @@ defmodule Zongzi.TimelineTest do
     end
   end
 
-  # ---- insert_note_at ----
+  # ---- insert (seq_id-relative) ----
 
-  describe "insert_note_at/3" do
-    test "中间插入" do
+  describe "insert_note_before/3" do
+    test "在指定 seq 之前插入" do
       {:ok, tl, _notes} = build_timeline_3()
       [a, b, c] = Timeline.to_list(tl)
       {:ok, note} = build_note(start_tick: 480)
 
-      {:ok, tl, note} = Timeline.insert_note_at(tl, note, 1)
+      {:ok, tl, note} = Timeline.insert_note_before(tl, note, b)
       assert Timeline.to_list(tl) == [a, note.seq_id, b, c]
     end
 
-    test "插入到开头" do
+    test "在 head 之前插入" do
       {:ok, tl, _notes} = build_timeline_3()
       [a, b, c] = Timeline.to_list(tl)
       {:ok, note} = build_note(start_tick: 0)
 
-      {:ok, tl, note} = Timeline.insert_note_at(tl, note, 0)
+      {:ok, tl, note} = Timeline.insert_note_before(tl, note, a)
       assert Timeline.to_list(tl) == [note.seq_id, a, b, c]
     end
+  end
 
-    test "超出范围插入末尾" do
+  describe "insert_note_after/3" do
+    test "在指定 seq 之后插入" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, c] = Timeline.to_list(tl)
+      {:ok, note} = build_note(start_tick: 480)
+
+      {:ok, tl, note} = Timeline.insert_note_after(tl, note, a)
+      assert Timeline.to_list(tl) == [a, note.seq_id, b, c]
+    end
+
+    test "在 tail 之后插入" do
       {:ok, tl, _notes} = build_timeline_3()
       {:ok, note} = build_note(start_tick: 1440)
 
-      {:ok, tl, note} = Timeline.insert_note_at(tl, note, 999)
+      {:ok, tl, note} = Timeline.insert_note_after(tl, note, List.last(Timeline.to_list(tl)))
       assert List.last(Timeline.to_list(tl)) == note.seq_id
     end
   end
@@ -151,14 +164,14 @@ defmodule Zongzi.TimelineTest do
     end
   end
 
-  # ---- drag_note ----
+  # ---- move_note ----
 
-  describe "drag_note/3" do
+  describe "move_note/4" do
     test "拖拽到末尾" do
       {:ok, tl, _notes} = build_timeline_3()
       [a, b, c] = Timeline.to_list(tl)
 
-      {:ok, tl} = Timeline.drag_note(tl, b, 2)
+      {:ok, tl} = Timeline.move_note(tl, b, c, :after)
       assert Timeline.to_list(tl) == [a, c, b]
     end
 
@@ -166,7 +179,7 @@ defmodule Zongzi.TimelineTest do
       {:ok, tl, _notes} = build_timeline_3()
       [a, b, c] = Timeline.to_list(tl)
 
-      {:ok, tl} = Timeline.drag_note(tl, c, 0)
+      {:ok, tl} = Timeline.move_note(tl, c, a, :before)
       assert Timeline.to_list(tl) == [c, a, b]
     end
 
@@ -175,12 +188,12 @@ defmodule Zongzi.TimelineTest do
       [_a, _b, c] = Timeline.to_list(tl)
       {:ok, tl, _merged} = Timeline.merge_notes(tl, n2, n3, "merged_note")
 
-      assert Timeline.drag_note(tl, c, 0) == {:error, {:is_tombstone, c}}
+      assert Timeline.move_note(tl, c, c, :before) == {:error, {:is_tombstone, c}}
     end
 
     test "seq_id 不存在报错" do
       {:ok, tl} = Timeline.new("t1")
-      assert Timeline.drag_note(tl, 99999, 0) == {:error, {:not_found, 99999}}
+      assert Timeline.move_note(tl, 99999, 99999, :before) == {:error, {:not_found, 99999}}
     end
   end
 

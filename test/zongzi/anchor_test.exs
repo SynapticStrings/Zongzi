@@ -92,9 +92,9 @@ defmodule Zongzi.AnchorTest do
 
   describe "conflict" do
     test "drag 破坏邻接 → adjacency_lost" do
-      {:ok, tl, {a, b, c, _d}, _notes} = build_timeline_4()
+      {:ok, tl, {a, b, c, d}, _notes} = build_timeline_4()
       int = build_intervention({a, b, c})
-      {:ok, tl} = Timeline.drag_note(tl, b, 3)
+      {:ok, tl} = Timeline.move_note(tl, b, d, :after)
       result = Anchor.rebase_all([int], tl)
       assert result.survived == []
       assert [{^int, :adjacency_lost}] = result.conflicts
@@ -126,7 +126,7 @@ defmodule Zongzi.AnchorTest do
       int2 = build_intervention({b, c, d}, "int2")
       # split keeps int1 alive, drag breaks int2
       {:ok, tl, _before, after_note} = Timeline.split_note(tl, n2, 720, "split_id")
-      {:ok, tl} = Timeline.drag_note(tl, c, 0)
+      {:ok, tl} = Timeline.move_note(tl, c, a, :before)
       result = Anchor.rebase_all([int1, int2], tl)
       assert length(result.survived) == 1
       assert length(result.conflicts) == 1
