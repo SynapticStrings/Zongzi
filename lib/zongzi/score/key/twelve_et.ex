@@ -1,8 +1,10 @@
 defmodule Zongzi.Score.Key.TwelveET do
   @moduledoc """
   十二平均律实现。
+
   内部以 MIDI 编号（整数）存储。
   """
+
   use Zongzi.Score.Key
 
   defstruct [:midi]

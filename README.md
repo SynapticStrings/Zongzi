@@ -157,8 +157,7 @@ end
 ## ROADMAP
 
 - [ ] Review `Zongzi.Timeline`
-    - [x] 确定具体的操作范围
-    - [ ] 实现批量操作
-    - [ ] 优化数据结构
+    - [ ] 重写文档
+    - [ ] 100% Coverage
 - [ ] Review `Zongzi.Anchor`
 - [ ] Review `Zongzi.Intervention`

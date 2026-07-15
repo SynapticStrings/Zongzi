@@ -128,7 +128,7 @@ defmodule Zongzi.Timeline do
   defp default_next(order), do: Enum.max(order) + 1
 
   @doc """
-  head→tail walk，返回完整 [SeqID.t()]（含墓碑）。替代旧 `note_order` 字段访问。
+  返回完整 seq_id 列表（含墓碑）。
   """
   @spec to_list(t()) :: [SeqID.t()]
   def to_list(%__MODULE__{head: nil}), do: []
@@ -137,6 +137,7 @@ defmodule Zongzi.Timeline do
     do_to_list(nodes, head, [])
   end
 
+  # 机制是 head→tail walk
   defp do_to_list(_nodes, nil, acc), do: Enum.reverse(acc)
 
   defp do_to_list(nodes, seq, acc) do
@@ -144,7 +145,7 @@ defmodule Zongzi.Timeline do
     do_to_list(nodes, nxt, [seq | acc])
   end
 
-  @doc "seq_id 是否在链表中。"
+  @doc "给定 seq_id 是否在链表中。"
   @spec has_node?(t(), SeqID.t()) :: boolean()
   def has_node?(%__MODULE__{nodes: nodes}, seq_id), do: Map.has_key?(nodes, seq_id)
 
@@ -160,8 +161,9 @@ defmodule Zongzi.Timeline do
       {2, %Zongzi.Timeline{track_id: "Track-b", next_seq: 3}}
   """
   @spec generate(t()) :: {SeqID.t(), t()}
-  def generate(%__MODULE__{next_seq: next} = timeline),
-    do: {next, %__MODULE__{timeline | next_seq: next + 1}}
+  def generate(%__MODULE__{next_seq: next} = timeline), do: {next, %__MODULE__{timeline | next_seq: next + 1}}
+
+  # ---- 写操作（单个音符的 CRUD） ----
 
   @doc "将音符追加到 Timeline 末尾。"
   @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()}
@@ -170,12 +172,7 @@ defmodule Zongzi.Timeline do
       if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
 
     note = %{note | seq_id: seq_id}
-
-    timeline = %__MODULE__{
-      timeline
-      | seq_map: Map.put(timeline.seq_map, seq_id, note.id)
-    }
-
+    timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}
     timeline = link_tail(timeline, seq_id)
     {:ok, timeline, note}
   end
@@ -299,6 +296,133 @@ defmodule Zongzi.Timeline do
       {:ok, timeline}
     end
   end
+
+  # ---- 批量操作以及该用到的 ----
+
+  defp generate_batch(timeline, 0), do: {[], timeline}
+
+  defp generate_batch(%__MODULE__{} = timeline, count) do
+    start = timeline.next_seq
+    {Enum.to_list(start..(start + count - 1)), %{timeline | next_seq: start + count}}
+  end
+
+  # 纯 nodes map 操作（不依赖 struct 匹配）
+  defp put_next_raw(nodes, seq_id, new_next) do
+    {prv, _} = Map.fetch!(nodes, seq_id)
+    Map.put(nodes, seq_id, {prv, new_next})
+  end
+
+  defp put_prev_raw(nodes, seq_id, new_prev) do
+    {_, nxt} = Map.fetch!(nodes, seq_id)
+    Map.put(nodes, seq_id, {new_prev, nxt})
+  end
+
+  # 从 seq_ids 列表构造相邻子链 nodes
+  defp build_sub_chain([]), do: %{}
+  defp build_sub_chain(seq_ids) do
+    prevs = [nil | Enum.drop(seq_ids, -1)]
+    nexts = Enum.drop(seq_ids, 1) ++ [nil]
+
+    [seq_ids, prevs, nexts]
+    |> Enum.zip()
+    |> Enum.map(fn {sid, prv, nxt} -> {sid, {prv, nxt}} end)
+    |> Map.new()
+  end
+
+  # 从 from 向 next 方向走到 to，收集经过的 seq_id
+  defp collect_range(_nodes, current, to, acc) when current == to, do: {:ok, Enum.reverse([current | acc])}
+  defp collect_range(nodes, current, to, acc) do
+    {_, nxt} = Map.fetch!(nodes, current)
+
+    if is_nil(nxt) do
+      {:error, {:range_not_found, to}}
+    else
+      collect_range(nodes, nxt, to, [current | acc])
+    end
+  end
+
+  @doc """
+  批量 splice：把一组 notes 整体接到 target_seq 之后。O(n) 建子链 + O(1) splice。
+
+  notes 按传入顺序依次链接，seq_id 自动分配。
+  """
+  @spec splice_after(t(), [Note.t()], SeqID.t()) :: {:ok, t(), [Note.t()]} | {:error, term()}
+  def splice_after(%__MODULE__{} = timeline, [], _target_seq) do
+    {:ok, timeline, []}
+  end
+
+  def splice_after(%__MODULE__{} = timeline, notes, target_seq) when is_list(notes) do
+    with :ok <- assert_has_node(timeline, target_seq) do
+      {seq_ids, timeline} = generate_batch(timeline, length(notes))
+
+      notes_with_seq =
+        Enum.zip(notes, seq_ids)
+        |> Enum.map(fn {note, sid} -> %{note | seq_id: sid} end)
+
+      # 构造子链 nodes
+      sub_nodes = build_sub_chain(seq_ids)
+
+      # 加入 seq_map
+      seq_map =
+        Enum.reduce(notes_with_seq, timeline.seq_map, fn n, acc ->
+          Map.put(acc, n.seq_id, n.id)
+        end)
+
+      # splice: target_seq → first → ... → last → (old next)
+      first = hd(seq_ids)
+      last = List.last(seq_ids)
+      {_, old_next} = Map.fetch!(timeline.nodes, target_seq)
+
+      nodes =
+        timeline.nodes
+        |> Map.merge(sub_nodes)
+        |> put_next_raw(target_seq, first)
+        |> put_prev_raw(first, target_seq)
+
+      nodes =
+        if old_next do
+          nodes |> put_next_raw(last, old_next) |> put_prev_raw(old_next, last)
+        else
+          nodes
+        end
+
+      tail = if old_next, do: timeline.tail, else: last
+
+      {:ok,
+       %{timeline | nodes: nodes, seq_map: seq_map, tail: tail},
+       notes_with_seq}
+    end
+  end
+
+  @doc """
+  批量删除 from_seq..to_seq 范围内的所有 seq_id（标记墓碑，不断链）。
+
+  from_seq 必须链表中先于 to_seq（或相等）。
+  """
+  @spec delete_range(t(), SeqID.t(), SeqID.t()) :: {:ok, t()} | {:error, term()}
+  def delete_range(%__MODULE__{} = timeline, from_seq, to_seq) do
+    with :ok <- assert_has_node(timeline, from_seq),
+         :ok <- assert_has_node(timeline, to_seq) do
+      case collect_range(timeline.nodes, from_seq, to_seq, []) do
+        {:ok, seq_ids} ->
+          timeline =
+            Enum.reduce(seq_ids, timeline, fn sid, acc ->
+              %{
+                acc
+                | seq_map: Map.delete(acc.seq_map, sid),
+                  tombstones: MapSet.put(acc.tombstones, sid)
+              }
+            end)
+
+          {:ok, timeline}
+
+        {:error, _} = err ->
+          err
+      end
+    end
+  end
+
+  # ---- 内存回收 ----
 
   @doc "回收无 intervention 引用的墓碑，将其从链表中移除。"
   @spec gc(t(), [Zongzi.Intervention.t()]) :: t()

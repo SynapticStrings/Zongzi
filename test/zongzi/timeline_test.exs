@@ -259,6 +259,74 @@ defmodule Zongzi.TimelineTest do
     end
   end
 
+  # ---- splice_after ----
+
+  describe "splice_after/3" do
+    test "空列表不变" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, c] = Timeline.to_list(tl)
+      {:ok, tl, []} = Timeline.splice_after(tl, [], a)
+      assert Timeline.to_list(tl) == [a, b, c]
+    end
+
+    test "在中间 splice 一组音符" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, c] = Timeline.to_list(tl)
+      {:ok, n1} = build_note(start_tick: 240)
+      {:ok, n2} = build_note(start_tick: 360)
+
+      {:ok, tl, inserted} = Timeline.splice_after(tl, [n1, n2], a)
+      assert length(inserted) == 2
+      assert Timeline.to_list(tl) == [a, hd(inserted).seq_id, List.last(inserted).seq_id, b, c]
+    end
+
+    test "在 tail splice" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, c] = Timeline.to_list(tl)
+      {:ok, note} = build_note(start_tick: 1440)
+
+      {:ok, tl, [inserted]} = Timeline.splice_after(tl, [note], c)
+      assert tl.tail == inserted.seq_id
+      assert Timeline.to_list(tl) == [a, b, c, inserted.seq_id]
+    end
+
+    test "target 不存在报错" do
+      {:ok, tl, _notes} = build_timeline_3()
+      {:ok, note} = build_note([])
+      assert Timeline.splice_after(tl, [note], 99999) == {:error, {:not_found, 99999}}
+    end
+  end
+
+  # ---- delete_range ----
+
+  describe "delete_range/3" do
+    test "删除单个" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, c] = Timeline.to_list(tl)
+      {:ok, tl} = Timeline.delete_range(tl, b, b)
+      assert Timeline.to_list(tl) == [a, b, c]
+      assert MapSet.member?(tl.tombstones, b)
+      refute Map.has_key?(tl.seq_map, b)
+    end
+
+    test "删除连续范围" do
+      {:ok, tl, _notes} = build_timeline_4()
+      [a, b, c, d] = Timeline.to_list(tl)
+      {:ok, tl} = Timeline.delete_range(tl, b, c)
+      assert Timeline.to_list(tl) == [a, b, c, d]
+      assert MapSet.member?(tl.tombstones, b)
+      assert MapSet.member?(tl.tombstones, c)
+      refute Map.has_key?(tl.seq_map, b)
+      refute Map.has_key?(tl.seq_map, c)
+    end
+
+    test "from > to 报错" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, _c] = Timeline.to_list(tl)
+      assert Timeline.delete_range(tl, b, a) == {:error, {:range_not_found, a}}
+    end
+  end
+
   # ---- merge_notes ----
 
   describe "merge_notes/4" do
@@ -318,5 +386,52 @@ defmodule Zongzi.TimelineTest do
     {:ok, tl, n2} = Timeline.insert_note(tl, n2)
     {:ok, tl, n3} = Timeline.insert_note(tl, n3)
     {:ok, tl, [n1, n2, n3]}
+  end
+
+  defp build_timeline_4 do
+    {:ok, key} = Zongzi.Score.Key.TwelveET.new(60)
+
+    {:ok, n1} =
+      Zongzi.Score.Note.new(%{
+        id: Zongzi.Util.ID.generate_id("N_"),
+        start_tick: 0,
+        duration_tick: 480,
+        key: key,
+        lyric: "a"
+      })
+
+    {:ok, n2} =
+      Zongzi.Score.Note.new(%{
+        id: Zongzi.Util.ID.generate_id("N_"),
+        start_tick: 480,
+        duration_tick: 480,
+        key: key,
+        lyric: "b"
+      })
+
+    {:ok, n3} =
+      Zongzi.Score.Note.new(%{
+        id: Zongzi.Util.ID.generate_id("N_"),
+        start_tick: 960,
+        duration_tick: 480,
+        key: key,
+        lyric: "c"
+      })
+
+    {:ok, n4} =
+      Zongzi.Score.Note.new(%{
+        id: Zongzi.Util.ID.generate_id("N_"),
+        start_tick: 1440,
+        duration_tick: 480,
+        key: key,
+        lyric: "d"
+      })
+
+    {:ok, tl} = Timeline.new("t1")
+    {:ok, tl, n1} = Timeline.insert_note(tl, n1)
+    {:ok, tl, n2} = Timeline.insert_note(tl, n2)
+    {:ok, tl, n3} = Timeline.insert_note(tl, n3)
+    {:ok, tl, n4} = Timeline.insert_note(tl, n4)
+    {:ok, tl, [n1, n2, n3, n4]}
   end
 end
