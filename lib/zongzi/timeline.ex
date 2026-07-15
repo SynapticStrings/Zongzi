@@ -1,6 +1,8 @@
 defmodule Zongzi.Timeline do
   @moduledoc """
-  轨道的序列真相（source of truth for note ordering）。
+  轨道序列真实源。
+
+  仅记录音符序列之间的相互关系
 
   独立于 Note 的生命周期——Note 被 split/merge/drag 后，
   Timeline 维护的 seq_id 序列始终反映最新的全序关系。
@@ -13,7 +15,7 @@ defmodule Zongzi.Timeline do
 
   ## 查询原语
 
-  `status/2`、`scan/4`、`neighborhood/3` 等查询原语在 `Timeline.Query`。
+  参见 `Zongzi.Timeline.Query` 模块。
   """
   alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
 
@@ -39,6 +41,7 @@ defmodule Zongzi.Timeline do
   end
 
   # ---- 写操作 ----
+  # 也是针对音符序列的操作
 
   @doc "将音符追加到 Timeline 末尾，自动分配 seq_id。"
   @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()}
@@ -106,7 +109,7 @@ defmodule Zongzi.Timeline do
   end
 
   @doc """
-  拖拽 seq 到 target_seq 的 before/after 位置（锚相对语义，不依赖不稳定 index）。
+  拖拽 seq 到 target_seq 的 before/after 位置。
 
   拖拽墓碑拒绝；target 不存在报错。
   """
@@ -129,7 +132,7 @@ defmodule Zongzi.Timeline do
     end
   end
 
-  @doc "拖拽 seq_id 到新 index。已废弃，建议用 move_note/4（锚相对语义）。"
+  @doc "拖拽 seq_id 到新 index。已废弃，建议用基于锚相对语义的 move_note/4。"
   @spec drag_note(t(), SeqID.t(), non_neg_integer()) :: {:ok, t()} | {:error, term()}
   def drag_note(%__MODULE__{} = tl, seq_id, new_index)
       when is_integer(new_index) and new_index >= 0 do
@@ -192,9 +195,7 @@ defmodule Zongzi.Timeline do
     end
   end
 
-  @doc "自持 counter 生成新 SeqID。"
-  @spec generate(t()) :: {SeqID.t(), t()}
-  def generate(%__MODULE__{next_seq: next} = tl), do: {next, %__MODULE__{tl | next_seq: next + 1}}
+  # 和音符操作无关的更新
 
   @doc "回收无 intervention 引用的墓碑。"
   @spec gc(t(), [Zongzi.Intervention.t()]) :: t()
@@ -214,6 +215,10 @@ defmodule Zongzi.Timeline do
   end
 
   # ---- 共享 helper ----
+
+  @doc "自持 counter 生成新 SeqID。"
+  @spec generate(t()) :: {SeqID.t(), t()}
+  def generate(%__MODULE__{next_seq: next} = tl), do: {next, %__MODULE__{tl | next_seq: next + 1}}
 
   @doc false
   @spec note_order_index(t(), SeqID.t()) ::

@@ -82,21 +82,15 @@ defmodule Zongzi.Anchor.ScoredHost do
 
     candidates = Enum.map(neighbors.left ++ neighbors.right, &{&1.seq_id, &1.hops_from_focus})
 
-    scored = score_candidates(candidates, tl, context)
+    scored = score_candidates(candidates, context)
 
     case scored do
       [] ->
         {:conflict, :no_host}
 
-      [{best, _best_score, _hops} | rest] ->
-        # KNOWN ISSUE
-        # `ScoredHost.choose_host` 的 ambiguity 判定逻辑（对 `hd(rest)` 和 `hd(scored)` 的比较）看起来有 bug，
-        # 同分判定可能永远/从不触发，值得补测试。
-        # -- Claude Fable 5
-        #
-        # 懒得测试了，等到时候再来修
-        if rest != [] and elem(hd(rest), 1) == elem(scored |> hd(), 1) and
-             elem(hd(rest), 2) == elem(scored |> hd(), 2) do
+      [{best, best_score, best_hops} | rest] ->
+        if rest != [] and elem(hd(rest), 1) == best_score and
+             elem(hd(rest), 2) == best_hops do
           {:conflict, :ambiguous_host}
         else
           {:ok, best, %{scores: scored}}
@@ -125,7 +119,7 @@ defmodule Zongzi.Anchor.ScoredHost do
   end
 
   @doc false
-  def score_candidates(candidates, _tl, context) do
+  def score_candidates(candidates, context) do
     notes_by_seq = Map.get(context, :notes_by_seq, %{})
     seq_to_window = Map.get(context, :seq_to_window, %{})
     focus_note = Map.get(context, :focus_note)
@@ -135,7 +129,7 @@ defmodule Zongzi.Anchor.ScoredHost do
       s = score_one(cand, notes_by_seq, seq_to_window, focus_note)
       {cand, s, hops}
     end)
-    |> Enum.reject(fn {_, s, _} -> s == :forbid end)
+    |> Enum.reject(fn {_, s, _} -> not is_integer(s) end)
     |> Enum.sort_by(fn {_, s, h} -> {s, -h} end, :desc)
   end
 

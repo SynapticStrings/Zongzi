@@ -153,3 +153,12 @@ def deps do
   [{:zongzi, github: "SynapticStrings/Zongzi", branch: "main"}]
 end
 ```
+
+## ROADMAP
+
+- [ ] Review `Zongzi.Timeline`
+    - [x] 确定具体的操作范围
+    - [ ] 实现批量操作
+    - [ ] 优化数据结构
+- [ ] Review `Zongzi.Anchor`
+- [ ] Review `Zongzi.Intervention`
