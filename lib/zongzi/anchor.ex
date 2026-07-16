@@ -1,6 +1,6 @@
 defmodule Zongzi.Anchor do
   @moduledoc ~S"""
-  Intervention 结构 rebase 的批量编排。
+  Intervention 结构在变基时的批量编排。
 
   消费 edit batch（一组 interventions + 编辑后的 Timeline），
   对每个 intervention 调其 strategy 的 `rebase/3`，
