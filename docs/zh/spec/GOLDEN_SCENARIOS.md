@@ -27,6 +27,13 @@ Zongzi 及基于其开发的 SVS 编辑器的显著不同，是出发点是**跨
 | G-AN-04 | 跨窗 forbid | ScoredHost 在 seq_to_window 下拒绝跨窗宿主 | ScoredHost | 有单测（Context 注入） |
 | G-INT-01 | 挂载→编辑→rebase→resolve | 完整对抗一轮（mock Declaration） | spike_test | spike |
 | G-INT-02 | snapshot 失配 | 投影变了 → conflict / skip，不静默 apply | Declaration 实现 | spike / 引擎侧 |
+| G-PRE-01 | 紧靠·无 interv | A-B 紧靠，均无 intervention。改 B 歌词 → preutterance 前移 | 结构无 conflict；preutterance 自然被连续音符吸收 | NoteTriplet / Engine | — |
+| G-PRE-02 | 紧靠·有 interv | A 尾部有 pitch curve interv，A-B 紧靠。改 B 歌词 → preutterance 挤入 A 尾部 | 结构无 conflict；语义层：A 尾部投影可能被 preutterance 覆盖 → resolution 需引擎上下文判真假 | NoteTriplet / Declaration | **未落地** |
+| G-PRE-03 | 小 gap·无 interv | A-B 间隙 < preutterance 典型值，均无 interv。改 B 歌词 → preutterance 溢出到 gap 内，不触及 A | 结构无 conflict；语义层：投影变了但 A 无 interv → 无 conflict | NoteTriplet / Declaration | — |
+| G-PRE-04 | 小 gap·有 interv | A 尾部有 interv，A-B 间隙 < preutterance。改 B 歌词 → preutterance 溢出，可能与 A 尾部 interv 碰撞 | 结构无 conflict；语义层：需引擎上下文（实际音素边界）判断是否真碰撞，而非静默 conflict | NoteTriplet / Declaration | **未落地** |
+| G-PRE-05 | 大 gap | A-B 间隙 >> preutterance（如 RestSplit3Beats 切开的两窗）。改 B 歌词 | 结构无 conflict；preutterance 不跨窗边界 | NoteTriplet / Windowing | — |
+| G-PRE-06 | 重叠音符 | A 尾与 B 头重叠（A.end_tick > B.start_tick）。改 B 歌词 → preutterance 在重叠区内变化 | 结构可能 affected（取决于 anchor 形状）；语义层：重叠区投影竞争 | NoteTriplet / Declaration | **未落地** |
+| G-PRE-07 | 三重链 | A-B-C 连续。B 无 interv，A 和 C 各有 interv。改 B 歌词 | B 结构变化导致 A/C 的 anchor triplet 重算；语义层：A 尾 + C 头投影可能同时受影响 | NoteTriplet / Declaration | **未落地** |
 | G-WIN-01 | Timeline 分窗 | post-rebase：`Strategy.window/1`；默认空≥3拍且 1/2 归属 → `[Segment]` | Windowing | 有单测 |
 | G-ENG-01 | 引擎错误 vs conflict | render error 与 intervention conflict 分流 | Engine 契约 | **未落地** |
 | G-ENG-02 | segments 统一入口 | `check`/`render` 只吃 `[Segment]`；整轨=单段 | Engine | 契约测有 |
