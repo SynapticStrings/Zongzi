@@ -54,6 +54,12 @@ Intervention 描述：「在某处（anchor）、对某通道（channel）、做
 3. **挂在 note / note 序列上的改动**（如 G2P 结果）  
    - 锚在 note 或序列，payload 形状另一套；仍走结构 rebase + 语义 resolve 两阶段
 
+| 通道形态 | payload 形状 | 锚 | conflict detect |
+|---|---|---|---|
+| 曲线参数（pitch 等） | 控制点 + 边界 + 原始值 | Seq 三元组 | snapshot vs 新投影 |
+| timing | 边界 / 偏移 + 原始值 | 同上 | 同上 |
+| G2P / 音素结果 | 挂在 note 或序列上 | note / 序列 | 另一类 payload（不假装曲线） |
+
 ### 字段分工
 
 ```elixir
