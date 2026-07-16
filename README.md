@@ -157,7 +157,6 @@ end
 ## ROADMAP
 
 - [ ] Review `Zongzi.Timeline`
-    - [ ] 重写文档
     - [ ] 100% Coverage
 - [ ] Review `Zongzi.Anchor`
 - [ ] Review `Zongzi.Intervention`

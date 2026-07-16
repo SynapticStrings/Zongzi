@@ -7,9 +7,12 @@ defmodule Zongzi.Timeline.Query do
   ## 不变量
 
   格子状态 **仅** 由 `tombstones` 与 `seq_map` 两个 O(1) 查找判定。
+
   写操作保证：
+
   - insert 同时写 nodes 链表和 seq_map
   - gc 同时从 nodes 链表和 tombstones 移除
+
   因此不存在「链表里有但 tombstones 和 seq_map 都没有」的状态。
   """
 
@@ -24,9 +27,9 @@ defmodule Zongzi.Timeline.Query do
   - `:delete_tombstone` — 墓碑且 seq_map 已无
   - `:missing` — 两表均无（已 gc 或从未插入）
   """
-  @type cell_status :: :active | :merge_tombstone | :delete_tombstone | :missing
+  @type cell_status :: Neighborhood.status() | :missing
 
-  @doc "获取给定 SeqID 的格子状态。O(1)。"
+  @doc "获取给定 SeqID 的格子状态。"
   @spec status(Timeline.t(), SeqID.t()) :: cell_status()
   def status(%Timeline{} = timeline, seq_id) do
     cond do
@@ -49,6 +52,7 @@ defmodule Zongzi.Timeline.Query do
   有向扫描，返回候选 SeqID 列表（近→远）。
 
   ## Options
+
   - `:active_only` — 跳过墓碑（默认 `true`）
   - `:include_self` — 默认 `false`
   - `:limit` — 最多返回几个候选；`nil` 不限制
@@ -76,7 +80,11 @@ defmodule Zongzi.Timeline.Query do
 
   @doc """
   焦点邻域。`count` 是每侧收集的格子数（不是格距半径）。
-  默认 `count: 1, active_only: false` 可还原三元组邻居语义。
+
+  ## 选项
+
+  - `:count` - 查找的数目，默认为 1
+  - `:active_only` - 仅包括活跃的 SeqID ，默认为 false
   """
   @spec neighborhood(Timeline.t(), SeqID.t(), keyword()) :: Neighborhood.t()
   def neighborhood(%Timeline{} = timeline, seq_id, opts \\ []) do
@@ -94,7 +102,7 @@ defmodule Zongzi.Timeline.Query do
   end
 
   @doc """
-  链表上两点格距（含墓碑格）。任一方不在链表中返回 error。O(k)，k=距离。
+  链表上两点格距（含墓碑格）。任一方不在链表中返回 error。
   """
   @spec hops(Timeline.t(), SeqID.t(), SeqID.t()) ::
           {:ok, non_neg_integer()} | {:error, :not_found}
@@ -180,7 +188,6 @@ defmodule Zongzi.Timeline.Query do
         cell = %{
           seq_id: next,
           status: st,
-          order_index: 0,
           hops_from_focus: n + 1
         }
 

@@ -42,7 +42,7 @@ defmodule Zongzi.Timeline do
           track_id: ID.t(),
           head: SeqID.t() | nil,
           tail: SeqID.t() | nil,
-          nodes: %{SeqID.t() => {SeqID.t() | nil, SeqID.t() | nil}},
+          nodes: %{SeqID.t() => {prev_seq_id :: SeqID.t() | nil, next_seq_id :: SeqID.t() | nil}},
           seq_map: %{SeqID.t() => ID.t(Note)},
           tombstones: MapSet.t(SeqID.t()),
           next_seq: pos_integer()
@@ -137,7 +137,7 @@ defmodule Zongzi.Timeline do
     do_to_list(nodes, head, [])
   end
 
-  # 机制是 head→tail walk
+  # 递归遍历所有节点将下一个添加到列表
   defp do_to_list(_nodes, nil, acc), do: Enum.reverse(acc)
 
   defp do_to_list(nodes, seq, acc) do
@@ -207,7 +207,7 @@ defmodule Zongzi.Timeline do
 
   后半音符自动分配新 seq_id 并 splice 到原音符后。
   """
-  @spec split_note(t(), Note.t(), non_neg_integer(), ID.t()) ::
+  @spec split_note(t(), Note.t(), non_neg_integer(), ID.t(Note.t())) ::
           {:ok, t(), Note.t(), Note.t()} | {:error, term()}
   def split_note(%__MODULE__{} = timeline, %Note{} = note, split_tick, new_id) do
     seq_id = note.seq_id
@@ -219,12 +219,10 @@ defmodule Zongzi.Timeline do
       before_note = %{before_note | seq_id: seq_id}
       after_note = %{after_note | seq_id: new_seq}
 
-      timeline = link_after(timeline, new_seq, seq_id)
-
-      timeline = %__MODULE__{
+      timeline =
         timeline
-        | seq_map: Map.put(timeline.seq_map, new_seq, timeline.seq_map[seq_id])
-      }
+        |> link_after(new_seq, seq_id)
+        |> then(&%{&1 | seq_map: Map.put(&1.seq_map, new_seq, &1.seq_map[seq_id])})
 
       {:ok, timeline, before_note, after_note}
     end
@@ -233,7 +231,8 @@ defmodule Zongzi.Timeline do
   @doc """
   拖拽 seq 到 target_seq 的 before/after 位置。
   """
-  @spec move_note(t(), SeqID.t(), SeqID.t(), :before | :after) :: {:ok, t()} | {:error, term()}
+  @spec move_note(t(), selected_seq_id :: SeqID.t(), target_seq_id :: SeqID.t(), :before | :after) ::
+          {:ok, t()} | {:error, term()}
   def move_note(%__MODULE__{} = timeline, seq_id, target_seq, where)
       when where in [:before, :after] do
     with :ok <- assert_not_tombstone(timeline, seq_id),
@@ -300,6 +299,7 @@ defmodule Zongzi.Timeline do
 
   # ---- 批量操作以及该用到的 ----
 
+  # 批量增加音符的 SeqID
   defp generate_batch(timeline, 0), do: {[], timeline}
 
   defp generate_batch(%__MODULE__{} = timeline, count) do
@@ -444,7 +444,7 @@ defmodule Zongzi.Timeline do
 
   # ---- Query 用遍历原语 ----
 
-  @doc false
+  @doc "获得给定时间线下某 SeqID 的下一个 SeqID 。"
   @spec node_next(t(), SeqID.t()) :: SeqID.t() | nil
   def node_next(%__MODULE__{nodes: nodes}, seq_id) do
     case Map.fetch(nodes, seq_id) do
@@ -453,7 +453,7 @@ defmodule Zongzi.Timeline do
     end
   end
 
-  @doc false
+  @doc "获得给定时间线下某 SeqID 的上一个 SeqID 。"
   @spec node_prev(t(), SeqID.t()) :: SeqID.t() | nil
   def node_prev(%__MODULE__{nodes: nodes}, seq_id) do
     case Map.fetch(nodes, seq_id) do

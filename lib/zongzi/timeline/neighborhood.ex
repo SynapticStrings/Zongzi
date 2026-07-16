@@ -2,20 +2,20 @@ defmodule Zongzi.Timeline.Neighborhood do
   @moduledoc """
   以 focus 为中心的局部序列视图。
 
-  - `left` / `right`：由近到远
-  - `hops_from_focus`：在链表上的格距（含墓碑格）
-  - `order_index`：弃用字段，固定为 0（双向链表无廉价 index）
+  `left` / `right` 的列表排序表示由近到远。
   """
 
   alias Zongzi.Timeline.SeqID
 
   @type status :: :active | :merge_tombstone | :delete_tombstone
 
+  @typedoc "在链表上的格距（含墓碑格）"
+  @type hops_from_focus :: non_neg_integer()
+
   @type cell :: %{
           seq_id: SeqID.t(),
           status: status(),
-          order_index: non_neg_integer(),
-          hops_from_focus: non_neg_integer()
+          hops_from_focus: hops_from_focus()
         }
 
   @type t :: %__MODULE__{

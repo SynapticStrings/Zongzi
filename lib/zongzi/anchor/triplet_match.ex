@@ -1,6 +1,6 @@
 defmodule Zongzi.Anchor.TripletMatch do
   @moduledoc """
-  Triplet anchor 结构的**共享判定逻辑**（NoteTriplet 与 ScoredHost 共用）。
+  Triplet anchor 结构的共享判定逻辑（NoteTriplet 与 ScoredHost 共用）。
   """
 
   alias Zongzi.{Intervention, Timeline}

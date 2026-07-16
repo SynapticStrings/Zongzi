@@ -101,7 +101,7 @@ defmodule Zongzi.TimelineTest do
   # ---- generate ----
 
   describe "generate/1" do
-    test "生成递增的 SeqID" do
+    test "生成递增的 SeqID（用于 new/1）" do
       {:ok, tl} = Timeline.new("t1")
       {id1, tl} = Timeline.generate(tl)
       {id2, _tl} = Timeline.generate(tl)
@@ -110,7 +110,7 @@ defmodule Zongzi.TimelineTest do
       assert id2 == id1 + 1
     end
 
-    test "从指定 next_seq 起算" do
+    test "从指定 next_seq 起算（用于 build/1）" do
       {:ok, tl} = Timeline.new("t1")
       {id, _tl} = %{tl | next_seq: 100} |> Timeline.generate()
       assert id == 100
@@ -130,6 +130,8 @@ defmodule Zongzi.TimelineTest do
     end
 
     test "连续插入保持顺序" do
+      # 注意：是插入的顺序而不是 start_tick 的顺序
+      # 其交给 Track 管理
       {:ok, n1} = build_note(start_tick: 0)
       {:ok, n2} = build_note(start_tick: 480)
       {:ok, n3} = build_note(start_tick: 960)
@@ -151,7 +153,7 @@ defmodule Zongzi.TimelineTest do
     end
   end
 
-  # ---- insert (seq_id-relative) ----
+  # ---- insert ----
 
   describe "insert_note_before/3" do
     test "在指定 seq 之前插入" do
