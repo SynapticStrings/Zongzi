@@ -52,12 +52,12 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
     test "no notes → empty" do
       {:ok, tl} = Timeline.new("t1")
       ctx = Context.new(%{timeline: tl, notes_by_seq: %{}, opts: %{beat_ticks: 480}})
-      assert RestSplit3Beats.window(ctx) == {:ok, []}
+      assert {:ok, %Context{current_segments: []}} = RestSplit3Beats.window(ctx)
     end
 
     test "single note → one slice on core" do
       {ctx, [n]} = build([note(0, 480)])
-      assert {:ok, [s]} = RestSplit3Beats.window(ctx)
+      assert {:ok, %Context{current_segments: [s]}} = RestSplit3Beats.window(ctx)
       assert s.start_tick == 0
       assert s.end_tick == 480
       assert s.seq_ids == [n.seq_id]
@@ -68,7 +68,7 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
     test "gap == 3 beats: cut, 1 beat to prev, 2 to next, no dead zone" do
       # beat=480; A [0,480), gap 1440, B @ 1920
       {ctx, [a, b]} = build([note(0, 480), note(1920, 480)])
-      assert {:ok, [s1, s2]} = RestSplit3Beats.window(ctx)
+      assert {:ok, %Context{current_segments: [s1, s2]}} = RestSplit3Beats.window(ctx)
 
       assert s1.seq_ids == [a.seq_id]
       assert s2.seq_ids == [b.seq_id]
@@ -79,7 +79,7 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
     test "gap > 3 beats: dead zone in the middle" do
       # gap = 4 beats = 1920; B @ 2400
       {ctx, [a, b]} = build([note(0, 480), note(2400, 480)])
-      assert {:ok, [s1, s2]} = RestSplit3Beats.window(ctx)
+      assert {:ok, %Context{current_segments: [s1, s2]}} = RestSplit3Beats.window(ctx)
       assert s1.end_tick == 960
       assert s2.start_tick == 1440
       assert s1.end_tick < s2.start_tick
@@ -90,7 +90,7 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
     test "gap < 3 beats: glue into one slice" do
       # gap = 2 beats; B @ 1440
       {ctx, [a, b]} = build([note(0, 480), note(1440, 480)])
-      assert {:ok, [s]} = RestSplit3Beats.window(ctx)
+      assert {:ok, %Context{current_segments: [s]}} = RestSplit3Beats.window(ctx)
       assert s.start_tick == 0
       assert s.end_tick == 1920
       assert s.seq_ids == [a.seq_id, b.seq_id]
@@ -100,7 +100,7 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
   describe "intervention scope" do
     test "scope covering gap glues distant notes" do
       {ctx, [a, b]} = build([note(0, 480), note(5000, 480)])
-      assert {:ok, [_, _]} = RestSplit3Beats.window(ctx)
+      assert {:ok, %Context{current_segments: [_, _]}} = RestSplit3Beats.window(ctx)
 
       iv = %Intervention{
         id: "iv1",
@@ -112,7 +112,7 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
       }
 
       ctx = %{ctx | interventions: [iv]}
-      assert {:ok, [s]} = RestSplit3Beats.window(ctx)
+      assert {:ok, %Context{current_segments: [s]}} = RestSplit3Beats.window(ctx)
       assert a.seq_id in s.seq_ids
       assert b.seq_id in s.seq_ids
       assert s.start_tick == 0
@@ -123,7 +123,7 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
   describe "WholeTrack" do
     test "always one slice over all active notes" do
       {ctx, [a, b]} = build([note(0, 480), note(5000, 480)])
-      assert {:ok, [s]} = WholeTrack.window(ctx)
+      assert {:ok, %Context{current_segments: [s]}} = WholeTrack.window(ctx)
       assert s.seq_ids == [a.seq_id, b.seq_id]
       assert s.start_tick == 0
       assert s.end_tick == 5480

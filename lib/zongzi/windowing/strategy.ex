@@ -1,8 +1,7 @@
 defmodule Zongzi.Windowing.Strategy do
   @moduledoc """
-  分窗策略 behaviour：一次算出本轮全部 `Segment`。
 
-  不是 Phoenix atom plug 管道。需要多步时在实现模块**内部**私有组合。
+  类似于 plug 管道，但不同点是直接载入函数而不是 atom 。
 
   ## 约束（见 decisions/windowing-post-rebase）
 
@@ -12,7 +11,7 @@ defmodule Zongzi.Windowing.Strategy do
   - intervention 按 `channel` pattern match 决定是否撑窗（见各实现 moduledoc）
   """
 
-  alias Zongzi.Windowing.{Context, Segment}
+  alias Zongzi.Windowing.Context
 
-  @callback window(Context.t()) :: {:ok, [Segment.t()]} | {:error, term()}
+  @callback window(Context.t()) :: {:ok, Context.t()} | {:error, term()}
 end

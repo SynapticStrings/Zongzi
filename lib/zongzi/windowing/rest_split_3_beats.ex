@@ -54,7 +54,7 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
         end)
 
       case segments do
-        {:ok, list} -> {:ok, Enum.reverse(list)}
+        {:ok, list} -> {:ok, %{ctx | current_segments: Enum.reverse(list)}}
         {:error, _} = err -> err
       end
     end

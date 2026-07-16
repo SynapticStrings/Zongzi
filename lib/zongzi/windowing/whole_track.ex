@@ -15,7 +15,7 @@ defmodule Zongzi.Windowing.WholeTrack do
   import Zongzi.Score.Tick
 
   @impl true
-  def window(%Context{timeline: timeline, notes_by_seq: notes, interventions: intervs}) do
+  def window(%Context{timeline: timeline, notes_by_seq: notes, interventions: intervs} = ctx) do
     seq_ids =
       Timeline.to_list(timeline)
       |> Enum.filter(&Query.active?(timeline, &1))
@@ -34,7 +34,7 @@ defmodule Zongzi.Windowing.WholeTrack do
 
     case note_spans ++ scope_spans do
       [] ->
-        {:ok, []}
+        {:ok, %{ctx | current_segments: []}}
 
       spans ->
         start_tick = spans |> Enum.map(&elem(&1, 0)) |> Enum.min()
@@ -42,7 +42,7 @@ defmodule Zongzi.Windowing.WholeTrack do
         members = spans |> Enum.flat_map(&elem(&1, 2)) |> Enum.uniq()
 
         case Segment.new(start_tick, end_tick, members) do
-          {:ok, slice} -> {:ok, [slice]}
+          {:ok, slice} -> {:ok, %{ctx | current_segments: [slice]}}
           {:error, _} = err -> err
         end
     end

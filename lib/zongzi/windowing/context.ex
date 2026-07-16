@@ -21,6 +21,7 @@ defmodule Zongzi.Windowing.Context do
 
   alias Zongzi.{Timeline, Intervention, Score.Note, Score.TimeSigMap, Score.TempoMap}
   alias Zongzi.Timeline.SeqID
+  alias Zongzi.Windowing.Segment
 
   @type t :: %__MODULE__{
           timeline: Timeline.t(),
@@ -28,6 +29,7 @@ defmodule Zongzi.Windowing.Context do
           time_sig_map: TimeSigMap.t() | nil,
           tempo_map: TempoMap.t() | nil,
           interventions: [Intervention.t()],
+          current_segments: [Segment.t()],
           opts: map()
         }
 
@@ -37,9 +39,11 @@ defmodule Zongzi.Windowing.Context do
     time_sig_map: nil,
     tempo_map: nil,
     interventions: [],
-    opts: %{}
+    current_segments: [],
+    opts: %{},
   ]
 
+  # `current_segments` 不从 new/1 被载入
   @doc "从 map/keyword 构造 Context。"
   @spec new(map() | keyword()) :: t()
   def new(attrs \\ %{}) do
