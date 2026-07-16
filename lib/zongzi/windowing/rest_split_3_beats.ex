@@ -5,12 +5,10 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
   ## 规则
 
   1. 按 Timeline **active 序**取 note cores。
-  2. Hard glue：`slice_flag == :force_merge` 的音符与**后一个** active 音符不可切开；
-     `:force_slice` 强制在该音符前切开（即使空隙不足 3 拍）。
-  3. Intervention：对 `channel` pattern match；当前实现凡 `scope: {start, end}`
+  2. Intervention：对 `channel` pattern match；当前实现凡 `scope: {start, end}`
      合法的均并入 content（`:pitch` / `:phoneme_timing` / 其它带 scope 的）。
      无 `scope` 的 iv 不撑窗。
-  4. 相邻 content 空档 `gap`：
+  3. 相邻 content 空档 `gap`：
      - `gap < 3 * beat_ticks` → 粘连
      - `gap >= 3 * beat_ticks` → 切开；**前 1 拍归前片，后 2 拍归后片**；
        更长空隙中间为死区（不进任一切片）
@@ -92,9 +90,7 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
           %{
             start: n.start_tick,
             end: n.start_tick + n.duration_tick,
-            seq_ids: [sid],
-            force_merge_after?: n.slice_flag == :force_merge,
-            force_slice_before?: n.slice_flag == :force_slice
+            seq_ids: [sid]
           }
         end)
 
@@ -124,9 +120,7 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
     %{
       start: s,
       end: e,
-      seq_ids: [],
-      force_merge_after?: false,
-      force_slice_before?: false
+      seq_ids: []
     }
   end
 
@@ -135,30 +129,22 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
   # ---- merge ----
 
   # 将已排序 spans 合成 content blocks；threshold 用于「小缝必粘」
-  # force_merge_after on a span glues to the next span regardless of gap
-  # force_slice_before forces a cut before that span (unless force_merge from prev wins? glue wins)
   defp merge_spans([], _threshold, _beat, _ctx), do: []
 
   defp merge_spans([first | rest], threshold, _beat, _ctx) do
     Enum.reduce(rest, {[first], first}, fn span, {acc, prev} ->
       gap = span.start - prev.end
-      glue? = prev.force_merge_after? == true
-      force_cut? = span.force_slice_before? == true and not glue?
 
-      cond do
-        glue? or (gap < threshold and not force_cut?) ->
-          merged = %{
-            start: min(prev.start, span.start),
-            end: max(prev.end, span.end),
-            seq_ids: prev.seq_ids ++ span.seq_ids,
-            force_merge_after?: span.force_merge_after?,
-            force_slice_before?: false
-          }
+      if gap < threshold do
+        merged = %{
+          start: min(prev.start, span.start),
+          end: max(prev.end, span.end),
+          seq_ids: prev.seq_ids ++ span.seq_ids
+        }
 
-          {List.replace_at(acc, -1, merged), merged}
-
-        true ->
-          {acc ++ [span], span}
+        {List.replace_at(acc, -1, merged), merged}
+      else
+        {acc ++ [span], span}
       end
     end)
     |> elem(0)
@@ -166,7 +152,6 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
 
   # 对已切开的相邻块应用 1/2 空拍归属（仅当 gap >= threshold）
   # merge_spans 已在 gap < threshold 时粘连，故此处相邻块 gap 必 >= threshold
-  # （除非 force_slice 造成 gap < threshold 的切开）
   defp apply_cut_ownership([], _threshold, _beat), do: []
   defp apply_cut_ownership([only], _threshold, _beat), do: [only]
 
@@ -183,7 +168,6 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
             %{right | start: right.start - 2 * beat}
           }
         else
-          # force_slice 等造成的小缝切开：不吞空拍，边界贴 content
           {cur_left, right}
         end
 

@@ -6,14 +6,6 @@ defmodule Zongzi.Score.Note do
   alias Zongzi.Score.Tick
   alias Zongzi.Timeline.SeqID
 
-  # 切片操作逻辑
-  # 默认交给 Slicer 根据休止时间自动判断
-  # 强制操作为该音符和【后面的】音符作为一组
-  @type slice_flag ::
-          :auto
-          | :force_slice
-          | :force_merge
-
   # 直接在这里声明好啦
   # metadata 就是 %{作用域 => 内容}
   # 限定死本身就得是可被序列化的
@@ -28,7 +20,6 @@ defmodule Zongzi.Score.Note do
       :key,
       :lyric,
       seq_id: nil,
-      slice_flag: :auto,
       annotation: nil,
       metadata: %{}
     ],
@@ -42,7 +33,6 @@ defmodule Zongzi.Score.Note do
           key: Key.t(),
           lyric: String.t() | nil,
           seq_id: SeqID.t() | nil,
-          slice_flag: slice_flag(),
           annotation: String.t() | nil,
           metadata: %{}
         }
@@ -232,7 +222,6 @@ defmodule Zongzi.Score.Note do
               duration_tick: note_end - split_tick,
               key: note.key,
               lyric: note.lyric,
-              slice_flag: note.slice_flag,
               annotation: note.annotation,
               metadata: note.metadata
             },
@@ -262,7 +251,7 @@ defmodule Zongzi.Score.Note do
   - 两个音符必须是同一音高（通过 Key.to_midi/1 比较）
   - 必须重叠，或间隙 ≤ `gap_tolerance`
   - 返回 `{:ok, merged_note}`，生成新 ID
-  - 合并后 `slice_flag` 设为 `:auto`
+  - 合并后标注取第一个非 nil 值
   """
   @spec merge(t(), t(), ID.t(t()), keyword()) :: {:ok, t()} | {:error, term()}
   def merge(note1, note2, merged_id, opts \\ []) do
@@ -317,7 +306,6 @@ defmodule Zongzi.Score.Note do
         duration_tick: end_tick - start_tick,
         key: note1.key,
         lyric: lyric,
-        slice_flag: :auto,
         annotation: annotation,
         metadata: Map.merge(note1.metadata, note2.metadata)
       }

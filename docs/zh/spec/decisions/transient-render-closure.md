@@ -8,16 +8,7 @@
 1. **渲染用切片**（`Windowing.Segment`）瞬态、可丢、每次 post-rebase 可重算。  
 2. **干预**锚在结构指称（默认 SeqID 三元组）或 channel 定义的锚上，**不**锚在 slice/window id。  
 3. 缓存键（若 Caller 做 phrase cache）= 内容指纹（notes + tempo 切片 + 存活 interventions + 引擎版本 ± 邻片 context），**不是**窗实体 id。  
-4. 引擎契约只吃 Request 数据（`segments: [Segment]`），**不** import Slicer/Windowing 模块。
-
-## 与 Slicer
-
-`Score.Slicer` 的 `Window` 与 `Windowing.Segment` 概念相近（都是投影），但：
-
-- Slicer：仅 notes + gap/flag  
-- Windowing：Timeline 序 + scopes + 默认三拍策略等  
-
-产品默认以 Windowing 为准。
+4. 引擎契约只吃 Request 数据（`segments: [Segment]`），**不** import Windowing 模块。
 
 ## 非目标
 

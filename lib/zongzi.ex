@@ -4,7 +4,7 @@ defmodule Zongzi do
 
   ## 核内
 
-  - **Score** — Note / Key / Tempo / TimeSig / Grid / RecordMap / Slicer
+  - **Score** — Note / Key / Tempo / TimeSig / Grid / RecordMap
   - **Timeline** — 序列真相（写）+ `Timeline.Query`（读原语）
   - **Anchor** — 编辑后结构 rebase（`rebase_all` / Strategy / NoteTriplet / ScoredHost）
   - **Windowing** — post-rebase 瞬态 `Segment`（`Strategy.window/1`、默认 `RestSplit3Beats`）

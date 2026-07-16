@@ -97,27 +97,6 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
     end
   end
 
-  describe "hard glue / force_slice" do
-    test "force_merge glues across large gap" do
-      {ctx, [na, nb]} =
-        build([note(0, 480, %{slice_flag: :force_merge}), note(5000, 480)])
-
-      assert {:ok, [s]} = RestSplit3Beats.window(ctx)
-      assert s.seq_ids == [na.seq_id, nb.seq_id]
-    end
-
-    test "force_slice cuts even when gap small" do
-      {ctx, [na, nb]} =
-        build([note(0, 480), note(500, 480, %{slice_flag: :force_slice})])
-
-      assert {:ok, [s1, s2]} = RestSplit3Beats.window(ctx)
-      assert s1.seq_ids == [na.seq_id]
-      assert s2.seq_ids == [nb.seq_id]
-      assert s1.end_tick == 480
-      assert s2.start_tick == 500
-    end
-  end
-
   describe "intervention scope" do
     test "scope covering gap glues distant notes" do
       {ctx, [a, b]} = build([note(0, 480), note(5000, 480)])

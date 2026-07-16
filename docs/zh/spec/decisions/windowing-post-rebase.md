@@ -2,7 +2,7 @@
 
 **Status**: Accepted  
 **In-tree**: `Windowing.*`、`Engine`  
-**Related**: [slicer-is-projection.md](slicer-is-projection.md), [transient-render-closure.md](transient-render-closure.md), [anchor-operate-orthogonality.md](anchor-operate-orthogonality.md)
+**Related**: [transient-render-closure.md](transient-render-closure.md), [anchor-operate-orthogonality.md](anchor-operate-orthogonality.md)
 
 ## 一句话
 
@@ -25,7 +25,6 @@ Segment     = 「这一锅 [start,end) + seq_ids」（瞬态批处理）
 - intervention 按 `channel` pattern match 决定是否撑窗。  
 - 默认策略 `RestSplit3Beats`：空 **≥ 3 拍** 才切开；**1 拍归前、2 拍归后**；更长空隙中间死区。  
 - `WholeTrack`：单一切片（无 phrase cache 引擎友好）。  
-- `Score.Slicer` 默认 64 tick **不得**冒充 phrase 边界。
 
 ## 管道（硬）
 
