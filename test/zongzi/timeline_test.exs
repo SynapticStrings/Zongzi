@@ -351,6 +351,113 @@ defmodule Zongzi.TimelineTest do
     end
   end
 
+  # ---- validate ----
+
+  describe "validate/1" do
+    test "empty timeline is valid" do
+      {:ok, tl} = Timeline.new("t1")
+      assert Timeline.validate(tl) == :ok
+    end
+
+    test "normal timeline is valid" do
+      {:ok, tl, _notes} = build_timeline_3()
+      assert Timeline.validate(tl) == :ok
+    end
+
+    test "timeline with delete tombstone is valid" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [_a, b, _c] = Timeline.to_list(tl)
+      {:ok, tl} = Timeline.delete_note(tl, b)
+      assert Timeline.validate(tl) == :ok
+    end
+
+    test "timeline with merge tombstone is valid" do
+      {:ok, tl, [_n1, n2, n3]} = build_timeline_3()
+      {:ok, tl, _merged} = Timeline.merge_notes(tl, n2, n3, "merged")
+      assert Timeline.validate(tl) == :ok
+    end
+
+    test "head not in nodes" do
+      {:ok, tl, _notes} = build_timeline_3()
+      tl = %{tl | head: 99999}
+      assert {:error, {:head_not_in_nodes, 99999}} = Timeline.validate(tl)
+    end
+
+    test "tail not in nodes" do
+      {:ok, tl, _notes} = build_timeline_3()
+      tl = %{tl | tail: 99999}
+      assert {:error, {:tail_not_in_nodes, 99999}} = Timeline.validate(tl)
+    end
+
+    test "head prev is not nil" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, _c] = Timeline.to_list(tl)
+      tl = %{tl | nodes: Map.put(tl.nodes, a, {b, b})}
+      assert {:error, {:head_tail_pointers_invalid, ^a, _, _, _}} = Timeline.validate(tl)
+    end
+
+    test "tail next is not nil" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [_a, _b, c] = Timeline.to_list(tl)
+      tl = %{tl | nodes: Map.put(tl.nodes, c, {nil, 42})}
+      assert {:error, {:head_tail_pointers_invalid, _, ^c, _, _}} = Timeline.validate(tl)
+    end
+
+    test "next link points to missing node" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, _c] = Timeline.to_list(tl)
+      tl = %{tl | nodes: Map.put(tl.nodes, b, {a, 99999})}
+      assert {:error, {:next_link_broken, ^b, 99999}} = Timeline.validate(tl)
+    end
+
+    test "prev link inconsistent" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, c] = Timeline.to_list(tl)
+      # a.next = b, but b.prev = a is broken; a.next still points to b while a.next is nil.
+      tl = %{
+        tl
+        | nodes:
+            tl.nodes
+            |> Map.put(a, {nil, nil})
+            |> Map.put(b, {a, c})
+      }
+      assert {:error, {:prev_link_broken, ^a, ^b}} = Timeline.validate(tl)
+    end
+
+    test "next link inconsistent" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [a, b, c] = Timeline.to_list(tl)
+      # b.next = c, but c.prev = b is broken; c.prev points to an invalid node.
+      tl = %{
+        tl
+        | nodes:
+            tl.nodes
+            |> Map.put(b, {a, c})
+            |> Map.put(c, {99999, nil})
+      }
+      assert {:error, {:next_link_broken, ^b, ^c}} = Timeline.validate(tl)
+    end
+
+    test "node in nodes is neither active nor tombstone" do
+      {:ok, tl, _notes} = build_timeline_3()
+      [_a, b, _c] = Timeline.to_list(tl)
+      tl = %{tl | seq_map: Map.delete(tl.seq_map, b)}
+      assert {:error, {:missing_node, ^b}} = Timeline.validate(tl)
+    end
+
+    test "seq_map references missing node" do
+      {:ok, tl, _notes} = build_timeline_3()
+      tl = %{tl | seq_map: Map.put(tl.seq_map, 99999, "bad")}
+      assert {:error, {:seq_map_refs_missing_node, 99999}} = Timeline.validate(tl)
+    end
+
+    test "next_seq is not greater than max seq_id" do
+      {:ok, tl, _notes} = build_timeline_3()
+      tl = %{tl | next_seq: 1}
+      assert {:error, {:next_seq_not_greater_than_max, 1, _}} = Timeline.validate(tl)
+    end
+  end
+
   # ---- adjacent ----
 
   defp build_timeline_3 do
