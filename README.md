@@ -56,3 +56,10 @@ def deps do
   [{:zongzi, github: "SynapticStrings/Zongzi", branch: "main"}]
 end
 ```
+
+## ROADMAP
+
+- [ ] 打磨协议
+- [ ] 梳理文档以及用例
+- [ ] Translate document into English
+- [ ] Publish to hex.pm

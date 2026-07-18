@@ -26,7 +26,7 @@ defmodule Zongzi.Curve.Adapter do
 
   这里主要是用于参数的曲线在根据 Tempo 得到的 `tick_seq` 的采样点作为栅格化的单位/依据。
 
-  所以这也是考虑 `Zongzi.Curve.Adapter.span/1` 回调的一个原因了。
+  所以这也是考虑 `c:Zongzi.Curve.Adapter.span/1` 回调的一个原因了。
 
   同时也要考虑只要一部分曲线拿来序列化的情况。
 
