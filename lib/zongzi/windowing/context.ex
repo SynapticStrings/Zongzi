@@ -40,7 +40,7 @@ defmodule Zongzi.Windowing.Context do
     tempo_map: nil,
     interventions: [],
     current_segments: [],
-    opts: %{},
+    opts: %{}
   ]
 
   # `current_segments` 不从 new/1 被载入

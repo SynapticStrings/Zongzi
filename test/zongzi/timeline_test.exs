@@ -421,6 +421,7 @@ defmodule Zongzi.TimelineTest do
             |> Map.put(a, {nil, nil})
             |> Map.put(b, {a, c})
       }
+
       assert {:error, {:prev_link_broken, ^a, ^b}} = Timeline.validate(tl)
     end
 
@@ -435,6 +436,7 @@ defmodule Zongzi.TimelineTest do
             |> Map.put(b, {a, c})
             |> Map.put(c, {99999, nil})
       }
+
       assert {:error, {:next_link_broken, ^b, ^c}} = Timeline.validate(tl)
     end
 

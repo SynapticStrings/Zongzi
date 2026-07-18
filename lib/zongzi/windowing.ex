@@ -23,7 +23,8 @@ defmodule Zongzi.Windowing do
       # 链式多策略：
       #   {:ok, segments} = Windowing.run_stages(ctx, [RestSplit3Beats, WholeTrack])
   """
-  @spec run_stages(Context.t(), [module()]) :: {:ok, [Zongzi.Windowing.Segment.t()]} | {:error, term()}
+  @spec run_stages(Context.t(), [module()]) ::
+          {:ok, [Zongzi.Windowing.Segment.t()]} | {:error, term()}
   def run_stages(%Context{} = ctx, strategies \\ [RestSplit3Beats]) do
     with {:ok, %Context{current_segments: segments}} <- do_run(strategies, ctx) do
       {:ok, segments}

@@ -117,7 +117,11 @@ defmodule Zongzi.Anchor do
     end)
     |> Enum.reduce(%{survived: [], conflicts: [], decisions: %{}}, fn
       {:ok, int, decision}, acc ->
-        %{acc | survived: [int | acc.survived], decisions: Map.put(acc.decisions, int.id, decision)}
+        %{
+          acc
+          | survived: [int | acc.survived],
+            decisions: Map.put(acc.decisions, int.id, decision)
+        }
 
       {:conflict, {int, reason}}, acc ->
         %{
