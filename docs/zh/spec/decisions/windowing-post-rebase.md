@@ -15,13 +15,13 @@ Segment     = 「这一锅 [start,end) + seq_ids」（瞬态批处理）
 
 ```elixir
 @callback Windowing.Strategy.window(Context.t()) ::
-  {:ok, [Segment.t()]} | {:error, term()}
+  {:ok, Context.t()} | {:error, term()}
 
-# Segment: 半开 [start_tick, end_tick) + seq_ids
+# Segment: 半开 [start_tick, end_tick) + seq_ids，最终取 Context.current_segments
 # Context: timeline + notes_by_seq + 可选 time_sig/tempo/interventions/opts
 ```
 
-- **不是** atom plug 管道；组合逻辑放在 Strategy 模块内部。  
+- `Windowing.run_stages(ctx, [RestSplit3Beats, ...])` 串行调用策略模块，前一策略产出的 `Context` 传入下一策略；与 plug 管道的唯一区别是不走 atom 分发。  
 - intervention 按 `channel` pattern match 决定是否撑窗。  
 - 默认策略 `RestSplit3Beats`：空 **≥ 3 拍** 才切开；**1 拍归前、2 拍归后**；更长空隙中间死区。  
 - `WholeTrack`：单一切片（无 phrase cache 引擎友好）。  
@@ -30,7 +30,7 @@ Segment     = 「这一锅 [start,end) + seq_ids」（瞬态批处理）
 
 ```text
 edit → Timeline → Anchor.rebase_all
-  → Strategy.window(survived interventions)
+  → Windowing.run_stages(survived interventions context)
   → Engine.check →（可选）render
   → 可选 Timeline.gc
 ```

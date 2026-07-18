@@ -16,11 +16,11 @@ Declaration（约束 / scope / snapshot / resolve 策略）
 
 - `scope/2`：切窗前静态保守上界，**不得**依赖本次投影结果。  
 - `snapshot/2`：挂载时从投影取**原始值**。  
-- `resolve/2`：check 时比对；落在 **check_***，不是「必须先出 final audio」。
+- `resolve/2`：check 时比对；落在 `check/1`，不是「必须先出 final audio」。
 
 ## 与 Engine
 
-见 `Engine`：`check_*` 产出 check_artifact（含 conflicts）；`render_*` 才是重产物。
+见 `Engine`：`check/1` 产出 check_artifact（含 conflicts）；`render/1` 才是重产物。
 
 ## 非目标
 

@@ -29,7 +29,7 @@ sequenceDiagram
         Zongzi-->>Caller: survived + 结构 conflicts
         Caller-->>User: 结构 conflicts（若有）
 
-        Note over Caller: Strategy.window/1 → [Segment]
+        Note over Caller: Windowing.run_stages → [Segment]
         Caller->>Engine: check(%{segments: ...})
         Engine-->>Caller: check_artifact ± semantic conflicts
         Caller->>Engine: render(%{segments: ...})（可选，重）
