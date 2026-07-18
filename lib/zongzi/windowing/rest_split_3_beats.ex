@@ -22,6 +22,9 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
   ## Caveats
 
   - scope 与 note 完全不相交时，作为独立 content span 参与合并/切开。
+  - **scope 会撑窗**：`Declaration.scope/2` 是保守上界（如 pitch 含
+    preutterance 余量），若其把 note 间 gap 填到 `< 3 * beat_ticks`，
+    本应切开的两片会被粘连成一窗——声明 scope 时注意余量别给太宽。
   - 暂不做引擎 pad（pad 后置（Caller））。
   """
 

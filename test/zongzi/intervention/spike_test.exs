@@ -62,8 +62,8 @@ defmodule Zongzi.Intervention.SpikeTest do
       channel: :phoneme_timing,
       anchor: triplet,
       payload: %{base: base, delta: delta},
-      strategy: MockTiming,
-      declaration: NoteTriplet
+      strategy: NoteTriplet,
+      declaration: MockTiming
     }
 
     %{int | snapshot: MockTiming.snapshot(nil, int)}
@@ -207,7 +207,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
     # intervention 锚在 c（不引用 b）→ GC 回收 b
     int = make_timing_int({a, c, d}, %{0 => 0.0})
-    tl = Timeline.gc(tl, [int])
+    {:ok, tl} = Timeline.gc(tl, [int])
 
     assert MapSet.size(tl.tombstones) == 0
     assert Timeline.to_list(tl) == [a, c, d]
@@ -222,7 +222,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
     # intervention 锚在 c 旁边（current=c）→ GC 保留 c
     int = make_timing_int({b, c, nil}, %{0 => 0.0})
-    tl = Timeline.gc(tl, [int])
+    {:ok, tl} = Timeline.gc(tl, [int])
 
     assert MapSet.size(tl.tombstones) == 1
     assert length(Timeline.to_list(tl)) == 4

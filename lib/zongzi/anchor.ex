@@ -39,9 +39,12 @@ defmodule Zongzi.Anchor do
   """
   alias Zongzi.{Intervention, Timeline}
 
+  @type decision_label :: :preserve | :rebase | :relocate | :split | :conflict
+
   @type rebase_result :: %{
           survived: [Intervention.t()],
-          conflicts: [{Intervention.t(), Zongzi.Anchor.Strategy.reason()}]
+          conflicts: [{Intervention.t(), Zongzi.Anchor.Strategy.reason()}],
+          decisions: %{optional(term()) => decision_label()}
         }
 
   @doc """
@@ -61,8 +64,24 @@ defmodule Zongzi.Anchor do
   |---|---|
   | `{:ok, :preserve}` | survived（原样） |
   | `{:ok, {:rebase, updated}}` | survived（锚已更新） |
-  | `{:ok, {:relocate, updated, meta}}` | survived（锚已重定位） |
+  | `{:ok, {:relocate, updated, meta}}` | survived（锚已重定位；strategy 的 meta 并入 on_rebase meta） |
   | `{:conflict, reason}` | conflicts |
+
+  ## 返回值
+
+  - `:survived` — 存活 interventions（含 `on_rebase` split 出的子干预）
+  - `:conflicts` — `{intervention, reason}` 列表
+  - `:decisions` — `%{intervention_id => :preserve | :rebase | :relocate | :split | :conflict}`，
+    每条 intervention 的结构决策（split 标在子干预上），供 Caller 做指标/日志
+
+  ## on_rebase 钩子
+
+  策略决策成功后，若 intervention 的 declaration 实现了 `on_rebase/4`，
+  以 `(int, meta, timeline, context)` 调用——meta 含 `%{decision, old_anchor, new_anchor}`
+  （relocate 时并入 strategy 的 meta），context 即本函数的 Caller 注入 Context
+  （declaration 可用 `notes_by_seq` 等做 payload 的 tick 级维护）。
+  `{:split, children}` 的子干预**不再过 strategy.rebase**——子干预锚的正确性由
+  declaration 负责。
   """
   @spec rebase_all([Intervention.t()], Timeline.t(), Zongzi.Anchor.Context.t(), keyword()) ::
           rebase_result()
@@ -76,43 +95,53 @@ defmodule Zongzi.Anchor do
       case strategy.rebase(int, timeline, context) do
         {:ok, :preserve} ->
           meta = %{decision: :preserve, old_anchor: int.anchor, new_anchor: int.anchor}
-          apply_on_rebase(int, meta, timeline)
+          apply_on_rebase(int, meta, timeline, context, :preserve)
 
         {:ok, {:rebase, updated}} ->
           meta = %{decision: :rebase, old_anchor: int.anchor, new_anchor: updated.anchor}
-          apply_on_rebase(updated, meta, timeline)
+          apply_on_rebase(updated, meta, timeline, context, :rebase)
 
-        {:ok, {:relocate, updated, _m}} ->
-          meta = %{decision: :relocate, old_anchor: int.anchor, new_anchor: updated.anchor}
-          apply_on_rebase(updated, meta, timeline)
+        {:ok, {:relocate, updated, m}} ->
+          meta =
+            Map.merge(m, %{
+              decision: :relocate,
+              old_anchor: int.anchor,
+              new_anchor: updated.anchor
+            })
+
+          apply_on_rebase(updated, meta, timeline, context, :relocate)
 
         {:conflict, reason} ->
           [{:conflict, {int, reason}}]
       end
     end)
-    |> Enum.reduce(%{survived: [], conflicts: []}, fn
-      {:ok, int}, acc ->
-        %{acc | survived: [int | acc.survived]}
+    |> Enum.reduce(%{survived: [], conflicts: [], decisions: %{}}, fn
+      {:ok, int, decision}, acc ->
+        %{acc | survived: [int | acc.survived], decisions: Map.put(acc.decisions, int.id, decision)}
 
       {:conflict, {int, reason}}, acc ->
-        %{acc | conflicts: [{int, reason} | acc.conflicts]}
+        %{
+          acc
+          | conflicts: [{int, reason} | acc.conflicts],
+            decisions: Map.put(acc.decisions, int.id, :conflict)
+        }
     end)
-    |> then(fn %{survived: s, conflicts: c} ->
-      %{survived: Enum.reverse(s), conflicts: Enum.reverse(c)}
+    |> then(fn %{survived: s, conflicts: c} = acc ->
+      %{acc | survived: Enum.reverse(s), conflicts: Enum.reverse(c)}
     end)
   end
 
-  defp apply_on_rebase(int, meta, timeline) do
+  defp apply_on_rebase(int, meta, timeline, context, decision) do
     decl = int.declaration
 
-    if decl && function_exported?(decl, :on_rebase, 3) do
-      case decl.on_rebase(int, meta, timeline) do
-        {:ok, updated} -> [{:ok, updated}]
-        {:split, children} -> Enum.map(children, &{:ok, &1})
+    if decl && function_exported?(decl, :on_rebase, 4) do
+      case decl.on_rebase(int, meta, timeline, context) do
+        {:ok, updated} -> [{:ok, updated, decision}]
+        {:split, children} -> Enum.map(children, &{:ok, &1, :split})
         {:conflict, reason} -> [{:conflict, {int, {:on_rebase_conflict, reason}}}]
       end
     else
-      [{:ok, int}]
+      [{:ok, int, decision}]
     end
   end
 end

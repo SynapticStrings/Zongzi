@@ -28,6 +28,11 @@ defmodule Zongzi.Timeline do
 
   参见 `Zongzi.Timeline.Query` 模块。
 
+  ## 与 Caller 的配套约定
+
+  Timeline 不持有 Note 实体，写操作后 Caller 侧 note 快照（notes_by_seq）
+  的同步约定见 `Zongzi.Score.TrackBuilder`。
+
   ## 复杂度
 
   - seq_id 相对操作（append/split/move）：O(1)
@@ -228,15 +233,16 @@ defmodule Zongzi.Timeline do
   在 `split_tick` 处切开音符，返回前后两个 Note。
 
   后半音符自动分配新 seq_id 并 splice 到原音符后。
+  `attrs` 可选，透传给 `Note.split/4`（如给后半音符不同的 lyric）。
   """
-  @spec split_note(t(), Note.t(), non_neg_integer(), ID.t(Note.t())) ::
+  @spec split_note(t(), Note.t(), non_neg_integer(), ID.t(Note.t()), map() | keyword()) ::
           {:ok, t(), Note.t(), Note.t()} | {:error, term()}
-  def split_note(%__MODULE__{} = timeline, %Note{} = note, split_tick, new_id) do
+  def split_note(%__MODULE__{} = timeline, %Note{} = note, split_tick, new_id, attrs \\ []) do
     seq_id = note.seq_id
 
     with :ok <- assert_has_node(timeline, seq_id),
          :ok <- assert_not_tombstone(timeline, seq_id),
-         {:ok, before_note, after_note} <- Note.split(note, split_tick, new_id) do
+         {:ok, before_note, after_note} <- Note.split(note, split_tick, new_id, attrs) do
       {new_seq, timeline} = generate(timeline)
       before_note = %{before_note | seq_id: seq_id}
       after_note = %{after_note | seq_id: new_seq}
@@ -448,20 +454,31 @@ defmodule Zongzi.Timeline do
 
   # ---- 内存回收 ----
 
-  @doc "回收无 intervention 引用的墓碑，将其从链表中移除。"
-  @spec gc(t(), [Zongzi.Intervention.t()]) :: t()
+  @doc """
+  回收无 intervention 引用的墓碑，将其从链表中移除。
+
+  引用判定走各 intervention 的 `Anchor.Strategy.referenced_seqs/1`
+  （strategy 为 nil 时回退 `NoteTriplet`）。
+  """
+  @spec gc(t(), [Zongzi.Intervention.t()]) :: {:ok, t()}
   def gc(%__MODULE__{} = timeline, interventions) do
     live_refs =
       interventions
-      |> Enum.flat_map(& &1.declaration.referenced_seqs(&1))
+      |> Enum.flat_map(fn int ->
+        strategy = int.strategy || Zongzi.Anchor.NoteTriplet
+        strategy.referenced_seqs(int)
+      end)
       |> MapSet.new()
 
     unreachable = MapSet.difference(timeline.tombstones, live_refs)
 
-    Enum.reduce(unreachable, timeline, fn seq, %__MODULE__{} = acc ->
-      %__MODULE__{acc | tombstones: MapSet.delete(acc.tombstones, seq)}
-      |> unlink(seq)
-    end)
+    timeline =
+      Enum.reduce(unreachable, timeline, fn seq, %__MODULE__{} = acc ->
+        %__MODULE__{acc | tombstones: MapSet.delete(acc.tombstones, seq)}
+        |> unlink(seq)
+      end)
+
+    {:ok, timeline}
   end
 
   # ---- Query 用遍历原语 ----

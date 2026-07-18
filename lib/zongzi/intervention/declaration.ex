@@ -12,8 +12,10 @@ defmodule Zongzi.Intervention.Declaration do
   **结构 rebase 不检查这条**。暂由 Declaration.resolve 在 check 时
   通过 snapshot 兜底（snapshot 不对 → conflict）。
 
-  未来建议在 Declaration 契约加结构层钩子（`on_rebase/3`），
-  让 channel 在 rebase 时自主切分/收缩 payload 边界。
+  已加结构层钩子 `on_rebase/4`，让 channel 在 rebase 时自主切分/收缩
+  payload 边界。钩子会收到 Caller 注入的 `Anchor.Context`（含 `notes_by_seq`），
+  declaration 可据此做 payload 的 tick 级维护。注意：`{:split, children}`
+  的子干预不再过 strategy.rebase——**子干预锚的正确性由 declaration 负责**。
 
   ## 三个回调的调用时机
 
@@ -87,10 +89,19 @@ defmodule Zongzi.Intervention.Declaration do
   # 用于结构化语境无变化但可能存在变化的情况
   # e.g. 修改 duration
   # 这些操作不会修改序列顺序，但是可能导致 intervention 边界发生变化
-  @callback on_rebase(intervention :: Intervention.t(), meta :: term(), timeline :: Timeline.t()) ::
+  #
+  # meta 含 %{decision, old_anchor, new_anchor}（relocate 时并入 strategy 的 meta）；
+  # context 为 Caller 注入 rebase_all 的 Anchor.Context（含 notes_by_seq），
+  # 供 declaration 做 payload 的 tick 级维护。
+  @callback on_rebase(
+              intervention :: Intervention.t(),
+              meta :: term(),
+              timeline :: Timeline.t(),
+              context :: Zongzi.Anchor.Context.t()
+            ) ::
               {:ok, Intervention.t()}
               | {:conflict, term()}
               | {:split, children :: Enumerable.t(Intervention.t())}
 
-  @optional_callbacks on_rebase: 3
+  @optional_callbacks on_rebase: 4
 end

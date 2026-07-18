@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased — 2026/07/18
+
+Caller 集成反馈（zongzi_feasibility 落地）驱动的契约修订：
+
+### 破坏性变更
+
+- **`Declaration.on_rebase/3` → `on_rebase/4`**：新增第 4 参 `context`（Caller 注入
+  `rebase_all` 的 `Anchor.Context`，含 `notes_by_seq`），declaration 可据此做 payload 的
+  tick 级维护，不再需要 Caller 预注入切分信息。relocate 时 strategy 的 meta
+  （from/to/method/打分）并入 meta 透传，不再丢弃。
+- **`Timeline.gc/2` 返回 `{:ok, t()}`**（原为裸 struct），与库内其他写操作一致。
+  同时修复 gc 误读 `int.declaration.referenced_seqs/1` 的 bug——正确来源是
+  `int.strategy || NoteTriplet`（declaration 契约上根本没有该回调）。
+
+### 新增
+
+- `Anchor.rebase_all/4` 返回值新增 `:decisions` 键：
+  `%{intervention_id => :preserve | :rebase | :relocate | :split | :conflict}`，
+  结构决策可被 Caller 消费（指标/日志），无需事后对比 anchor 重推。
+- `Timeline.split_note/5`：新增可选 `attrs` 参数，透传 `Note.split/4`
+  （如给后半音符不同 lyric）。
+- `Score.TrackBuilder`：纯文档模块，固化 Caller 侧「持轨」组件清单、
+  notes_by_seq 逐写操作同步契约与编辑回路；`Timeline` moduledoc 已交叉引用。
+
+### 文档
+
+- `RestSplit3Beats` 补充 caveat：intervention scope 是保守上界且会撑窗，
+  余量过宽会把本应切开的 gap 粘连成一窗。
+- 明确 `on_rebase` split 的子干预不再过 strategy.rebase，锚正确性由 declaration 负责。
+
 ## 0.1.0 — 2026/07/14
 
 初始版本。Zongzi 作为 SVS 领域的函数式组件库，提供 Score 基础、Timeline 写路径、
