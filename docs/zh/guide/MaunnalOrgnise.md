@@ -269,23 +269,27 @@ A. 简单说就是 interv 的范围，是否可能「污染」到前面或后面
 
 > Q5. strategy 字段是干嘛的？
 
-那就是针对这个 interv 执行锚定所要走的策略了。一般是实现了 `Zongzi.Anchor.Strategy` 行为。
+那就是针对这个 interv 执行锚定所要走的策略了。一般是实现了 `Zongzi.Anchor.Strategy` 行为的什么模块，后续需要读回调结果。
 
 > Phase2Fin. 在上一步的 A4 图上，画一个 Intervention 挂到中间那个 note 上。标出 anchor = 哪三个 seq_id，snapshot = 什么内容，scope = 什么范围。
+
+## Phase 3：编辑之后怎么同步（Anchor + Rebase）
+
+涉及的模块：
+
+- `Zongzi.Anchor`
+- `Zongzi.Anchor.*`
+
+*这是最难的一步，但也是整个库的灵魂。慢读。*
+
+要回答的问题：
+
+> Q1. rebase_all 输入什么输出什么？
 
 ---
 
 *以下部分尚未跟进*
 
-## Phase 3：编辑之后怎么同步（Anchor + Rebase）
-
-文件：zongzi/lib/zongzi/anchor.ex
-
-这是最难的一步，但也是整个库的灵魂。慢读。
-
-要回答的问题：
-
-1. rebase_all 输入什么输出什么？
 2. "结构层冲突"是指什么？（preserve / rebase / relocate / split / conflict 各是什么场景）
 3. split note 时，挂在原 note 上的 Intervention 怎么处理？
 4. delete note 时，Intervention 怎么可能 relocate？
@@ -297,7 +301,10 @@ A. 简单说就是 interv 的范围，是否可能「污染」到前面或后面
 
 ## Phase 4：引擎怎么消费（Windowing + Engine）
 
-文件：zongzi/lib/zongzi/windowing.ex、zongzi/lib/zongzi/engine.ex
+涉及的模块：
+
+- `Zongzi.Windowing`
+- `Zongzi.Engine`
 
 要回答的问题：
 
@@ -309,14 +316,17 @@ A. 简单说就是 interv 的范围，是否可能「污染」到前面或后面
 
 ## Phase 5：Declaration（语义层决议）
 
-文件：zongzi_feasibility/lib/zongzi_feasibility/declaration/pitch.ex
+涉及的模块：
+
+- `Zongzi.Intervention.Declaration`
+- `ZongziFeasibility.Declaration.Pitch` (*in <https://github.com/GES233/zongzi_feasibiliity>*)
 
 要回答的问题：
 
 1. Declaration behaviour 要求实现哪几个回调？（scope / snapshot / resolve）
 2. resolve 什么时候返回 {:ok, applied}，什么时候返回 {:conflict, :snapshot_stale}？
 3. snapshot 的归一化做了什么？为什么需要归一化？
-4. "snapshot 失配"在 BRAPA 口音切换场景下对应什么？
+4. "snapshot 失配"在 BRAPA 口音切换场景下对应什么？（参见 <https://github.com/openutau/OpenUtau/pull/1841> ，此会话是和 Hermes 吃过这个 issue 的瓜后搞的，所以沾了点上下文）
 
 产出：写一个具体的 BRAPA 例子：用户在音符上设了 Pitch Intervention，然后声库作者更新了 rendering engine。用 resolve 的输入输出描述这个 rebase 过程——不需要代码，用表格：
 
@@ -327,7 +337,9 @@ A. 简单说就是 interv 的范围，是否可能「污染」到前面或后面
 
 ## Phase 6：Caller 怎么串起来（编排层）
 
-文件：zongzi_feasibility/lib/zongzi_feasibility/caller.ex
+涉及到模块：
+
+- `ZongziFeasibility.Caller` (*in <https://github.com/GES233/zongzi_feasibiliity>*)
 
 要回答的问题：
 
