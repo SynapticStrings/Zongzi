@@ -21,25 +21,182 @@ A. 可以看 <https://github.com/GES233/zongzi_feasibiliity>
 - `Zongzi.Score.{Note, Key}` 不包括时间系统（`Zongzi.Score.{Tick, TimeSig, TimeSigMap, Tempo, TempoMap, Record, RecordMap}`）
 - `Zongzi.Timeline`
 
+> Q0. 方便介绍一些存了些什么吗？
+
+A. 主要是音符以及音高的领域模型（`Zongzi.Score`），逻辑相对简单，并不需要在这里展开，除此之外还有维护邻近音符序列的 `Zongzi.Timeline` 。
+
 > Q1. Timeline 存的是什么？一个 note 有哪些字段？
 
 A. 
 
 先回答第一个问题，`Timeline` 的数据结构是将轨道上音符之间的邻接关系显式建模所设立，其需求是在注入拖拽音符到新位置的这类情况以及需要用到邻近音符之间的关系。
 
-note 主要用于记录音符……
+按照代码，如下：
 
----
+```elixir
+defmodule Zongzi.Timeline do
+  ...
+  @type t :: %__MODULE__{
+          track_id: ID.t(),
+          head: SeqID.t() | nil,
+          tail: SeqID.t() | nil,
+          nodes: %{SeqID.t() => {prev_seq_id :: SeqID.t() | nil, next_seq_id :: SeqID.t() | nil}},
+          seq_map: %{SeqID.t() => ID.t(Note)},
+          tombstones: MapSet.t(SeqID.t()),
+          next_seq: pos_integer()
+        }
+  defstruct [
+    :track_id,
+    head: nil,
+    tail: nil,
+    nodes: %{},
+    seq_map: %{},
+    tombstones: MapSet.new(),
+    next_seq: 1
+  ]
+end
+```
 
-*以下部分尚未跟进*
+下面简单介绍下字段：
+
+* `:track_id` - 轨道的 ID ，用于下游应用的身份标识 *（其实可选）*
+* `:head` 以及 `:tail` - 两端的音符的 SeqID
+* `:nodes` - 记录音符邻接表的字段
+* `:seq_map` - SeqID 到目前存活 NoteID 的映射
+* `:tombstone` - 记录哪些被删除或被合并的 SeqID
+* `:next_seq` - 用于维护新 SeqID 的计数器
+
+而 note 主要用于记录音符本身。
+
+```elixir
+defmodule Zongzi.Score.Note do
+  use Model,
+    keys: [
+      :id,              # 记录音符的 ID
+      :start_tick,      # 记录音符的开始时刻
+      :duration_tick,   # 记录音符的时长
+      :key,             # 音高
+      :lyric,           # 歌词
+      seq_id: nil,      # SeqID
+      annotation: nil,  # 面向用户/UI的标注
+      metadata: %{}     # 元数据
+    ],
+    id_prefix: "Note_"
+end
+```
 
 > Q2. seq_id 是什么，谁分配它？
 
+A. 是一组独立于音符ID的序列ID，其本质上是正整数。
+和音符最大的不同是当某个轨道的音符消失了（因为被删除或被合并），该ID依旧存在，且不允许被修改。
+分配 SeqID 的模块是 `Zongzi.Timeline` 。
+
 > Q3. Timeline 是双向链表还是别的数据结构？怎么遍历？
+
+A.
+
+以前是列表，现在由于性能要求是基于字典的邻接表以及表示两端的字段。
+
+形如：
+
+```elixir
+%{
+  head: seq_id | nil,
+  tail: seq_id | nil,
+  nodes: %{seq_id => {prev_seq_id | nil, next_seq_id | nil}}
+}
+```
+
+我们假设某个 Timeline 完成了一系列操作（创建、创建、创建、创建、创建、在 SeqID 为 4 前的地方插入、在 SeqID 为 4 前的地方插入、删除 SeqID 为 6 的音符）。
+
+<details>
+<summary>Code</summary>
+
+```
+iex> {:ok, tl} = Timeline.new("a")
+iex> tl |>
+...> Timeline.insert_note(Zongzi.Score.Note.new(%{id: "Note_12345"}) |> elem(1)) |> elem(1) |>
+...> Timeline.insert_note(Zongzi.Score.Note.new(%{id: "Note_114514"}) |> elem(1)) |> elem(1) |>
+...> Timeline.insert_note(Zongzi.Score.Note.new(%{id: "Note_1919810"}) |> elem(1)) |> elem(1) |>
+...> Timeline.insert_note(Zongzi.Score.Note.new(%{id: "Note_19110"}) |> elem(1))  |> elem(1) |>
+...> Timeline.insert_note(Zongzi.Score.Note.new(%{id: "Note_19190"}) |> elem(1)) |> elem(1) |>
+...> Timeline.insert_note_before(Zongzi.Score.Note.new(%{id: "Note_191900"}) |> elem(1), 4) |> elem(1) |>
+...> Timeline.insert_note_before(Zongzi.Score.Note.new(%{id: "Note_191901"}) |> elem(1), 4) |> elem(1) |> Timeline.delete_note(6)
+{:ok,
+ %Zongzi.Timeline{
+   track_id: "a",
+   head: 1,
+   tail: 5,
+   nodes: %{
+     1 => {nil, 2},
+     2 => {1, 3},
+     3 => {2, 6},
+     4 => {7, 5},
+     5 => {4, nil},
+     6 => {3, 7},
+     7 => {6, 4}
+   },
+   seq_map: %{
+     1 => "Note_12345",
+     2 => "Note_114514",
+     3 => "Note_1919810",
+     4 => "Note_19110",
+     5 => "Note_19190",
+     7 => "Note_191901"
+   },
+   tombstones: MapSet.new([6]),
+   next_seq: 8
+ }}
+```
+</details>
+
+其结构应该为：
+
+```elixir
+%{
+  head: 1,
+  tail: 5,
+  nodes: %{
+    1 => {nil, 2},
+    2 => {1, 3},
+    3 => {2, 6},
+    4 => {7, 5},
+    5 => {4, nil},
+    6 => {3, 7},
+    7 => {6, 4}
+  },
+}
+```
+
+我们不需要在意删除的音符。
+
+如果想要遍历所有的音符，最好先从 `:head` 开始（一般是 $1$ ），我们得知了 `Timeline` 从 $1$ 开始，之后从 `:nodes` 中取 $1$ 对应的邻接关系，得知没有前一项并且后一项是 $2$ ，因此我们知道 $1$ 的后面是 $2$ ，以此类推。
+
+因为我设计了插入音符，整个列表并不按照自然数列递增（当然，就 SeqID 的生成而言，一定是单调递增的）。可以发现 $3$ 的后面是 $6$ ，$6$ 的后面是 $7$ ，$7$ 又回到 $4$ 了。
+
+其结构为：
+
+$$
+1, 2, 3, 6, 7, 4, 5
+$$
 
 > Q4. 如果我改一个 note 的歌词，Timeline 本身会变吗？
 
-产出：手写一张 A4 纸的图——一个三音符 Timeline，标出每个 note 的 seq_id、start_tick、duration、彼此的 prev/next 关系。
+A. 
+
+并不会。
+
+Timeline 只维护音符序列的关系（谁前谁后），修改音符歌词、时长等并不会修改 Timeline 。
+
+同时也不难得出，Timeline 仅允许单个时刻存在一个音符（或没有）。
+
+> **注意**
+>
+> Timeline 并不是轨道！
+
+> Phase1Fin. 手写一张 A4 纸的图——一个三音符 Timeline，标出每个 note 的 seq_id、start_tick、duration、彼此的 prev/next 关系。
+
+这个先算了吧。
 
 ## Phase 2：介入数据 —— 用户怎么盖掉模型生成
 
@@ -49,7 +206,16 @@ note 主要用于记录音符……
 
 要回答的问题：
 
-0. 为什么叫 Intervention ？什么才算做 Interv ？
+> Q0. 为什么叫 Intervention ？什么才算做 Interv ？
+
+A.
+
+在这里简单介绍下。……
+
+---
+
+*以下部分尚未跟进*
+
 1. Intervention 绑在哪个 note 上？（anchor 三元组是什么）
 2. payload 里存什么？
 3. snapshot 是什么时候拍的？为什么要拍？
