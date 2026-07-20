@@ -25,6 +25,7 @@ defmodule Zongzi.MixProject do
 
   @extras_docs [
     "docs/zh/guide/README.md",
+    "docs/zh/guide/MaunnalOrgnise.md",
     "docs/zh/spec/MENTAL_MODELS.md",
     "docs/zh/spec/GOLDEN_SCENARIOS.md",
   ]
@@ -105,7 +106,8 @@ defmodule Zongzi.MixProject do
         "中文文档": [~r/docs\/zh\/.?/]
       ],
       skip_undefined_reference_warnings_on: [
-        "CHANGELOG.md"
+        "CHANGELOG.md",
+        "docs/zh/guide/MaunnalOrgnise.md"
       ]
     ]
   end
