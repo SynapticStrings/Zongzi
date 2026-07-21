@@ -293,11 +293,18 @@ A. 那就是针对这个 interv 执行锚定所要走的策略了。一般是实
 
 A.
 
-其输入包括时间线，介入数据本体以及上下文、选项。
-目前选项仅包括 Interv 未指定的 strategy 字段本身。
-上下文的自由度很大，其内容需要看 Interv 的 strategy 模块以及策略声明模块需要什么。
+输入四项：
 
-最后的输出则是结构变化下无变化的、存在冲突的，以及经过介入声明根据策略被决策处理的那些介入数据。
+- `interventions` — 需要 rebase 的列表（可以为空）
+- `timeline` — 编辑后的 Timeline（nodes/tombstones/seq_map 已落地）
+- `context` — Caller 注入的只读快照（`notes_by_seq` 等；不传时用空 Context）
+- `opts` — `:default_strategy`（不指定时默认 `NoteTriplet`）
+
+输出 map 三个键：
+
+- `:survived` — 结构存活的 intervention 列表（含 on_rebase split 出的子干预）
+- `:conflicts` — `{intervention, reason}` 列表，上浮给 UI
+- `:decisions` — 每条 intervention 的结构决策（`:preserve/:rebase/:relocate/:split/:conflict`）
 
 > Q2. "结构层冲突"是指什么？（preserve / rebase / relocate / split / conflict 各是什么场景）
 
@@ -307,11 +314,11 @@ A.
 
 可以看一下 `t:Zongzi.Anchor.decision_label` 的声明，其包括了以下几类：
 
-- `:preserve` - 介入数据保持不变
-- `:rebase` - 介入数据的锚定对象被重定位（e.g. 临近的音符变化但没有影响到这个音符）
-- `:relocate` - 因为音符的拖拽被重定位
-- `:split` - 这个音符被拆成了一系列小音符，部分 interv 需要被保留的情况
-- `:conflict` - 存在冲突
+- `:preserve` - 三元组完全无损（3/3 match），原样存活
+- `:rebase` - focus 音符还在，但 prev/next 变了（≥ threshold match），锚更新
+- `:relocate` - focus 已死（被删/被合并），重新挂到最近的活跃邻居上
+- `:split` - `on_rebase/4` 返回子 intervention 列表，每个子干预不再走 strategy
+- `:conflict` - 结构无法存活，原因包括 `:adjacency_lost`（邻接丢失）、`:merged_away`（被合并消化）等
 
 其是 `strategy.rebase/3` 经过可选的 `decl.on_rebase/4` 两步处理返回的结果。
 
@@ -330,11 +337,30 @@ A.
 
 在 rebase 时，就会根据上下文的声明来进行向两边合并的尝试。
 
-> 疑问：如果不需要 relocated 呢？删了就是删了。
+> 补充：如果两边都找不到活跃邻居怎么办？
 >
-> 那么 direction 是不是还要引入 nil ，这样将 all 设为 [] 直接报 conflict 。
->
-> 【亟待讨论】
+> `NoteTriplet` 按 `orphan_direction`（`:prev` 或 `:next`，Context 里设，默认 `:next`）
+> 双腿扫描。双腿均空时返回 `{:conflict, :adjacency_lost}`，不会静默丢弃。
+> 不需要引入 nil——`orphan_direction` 永远有向，优先级可配。
+
+> Q5. rebase_all 里面走了哪两步？和渲染时的 resolve 怎么分界？
+
+A.
+
+内部两步（都是纯结构判定，不碰 snapshot）：
+
+1. `strategy.rebase/3` — 看锚还指得准不准
+   - 音符活着 → preserve / rebase / adjacency_lost
+   - 音符死了 → relocate / merged_away
+
+2. `decl.on_rebase/4`（可选钩子）— 做 payload 的坐标维护
+   - `{:ok, updated}` → 存活
+   - `{:split, children}` → 产出子干预
+   - `{:conflict, reason}` → 冲突
+
+和渲染时的区别：
+- `rebase_all` — 编辑时判定**结构**存活（锚还指得准吗？）
+- `Declaration.resolve` — 渲染时比对 **snapshot** 判定**语义**有效（base 还对得上吗？）
 
 > phase3Fin: 从 Phase 1 的三音符 Timeline 出发，画三个 case 的 before/after：
 > - split 中间音符 → 两个子 intervention
