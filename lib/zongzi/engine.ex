@@ -5,8 +5,8 @@ defmodule Zongzi.Engine do
   覆盖范围不设 whole/partial 回调：请求里**一律**带
   `segments: [Windowing.Segment.t()]`。
 
-  - 整轨 / 无 phrase cache：`WholeTrack.window/1` → 通常 **一个** Segment  
-  - 乐句切开：`RestSplit3Beats` 等 → **多个** Segment  
+  - 整轨 / 无 phrase cache：`WholeTrack.window/1` → 通常 **一个** Segment
+  - 乐句切开：`RestSplit3Beats` 等 → **多个** Segment
 
   引擎实现只消费 Segment 列表（及 notes / interventions / params），
   **不** import Windowing 模块，也**不**直接改 Timeline。
@@ -23,14 +23,14 @@ defmodule Zongzi.Engine do
 
   map 形，不强制 struct：
 
-  - **必填** `segments` — 至少可为 `[]`；UTAU 友好路径多为 length 1  
+  - **必填** `segments` — 至少可为 `[]`；UTAU 友好路径多为 length 1
   - 常用：`notes` / `notes_by_seq`、`interventions`（结构存活集）、
     `params`（Gender/Energy 等，非 intervention）、`tempo_segments`、`opts`
 
   ## 参数两类
 
-  1. **Intervention** — 可改的上游生成结果（曲线 / timing / 可编辑 G2P…）  
-  2. **params** — 非锚旋钮；check 做类型/范围校验  
+  1. **Intervention** — 可改的上游生成结果（曲线 / timing / 可编辑 G2P…）
+  2. **params** — 非锚旋钮；check 做类型/范围校验
 
   ## 循环
 
@@ -71,7 +71,11 @@ defmodule Zongzi.Engine do
   @doc """
   重渲染（可选）。消费同一套 `segments`（及已决议的 interventions）。
   """
-  @callback render(request()) :: {:ok, render_artifact()} | {:error, term()}
+  @callback render(request()) ::
+              {:ok, render_artifact()} | {:error, term()} | {:async, ref :: term()}
 
   @optional_callbacks [render: 1]
+
+  def supports_render?(mod) when is_atom(mod), do: function_exported?(mod, :render, 1)
+  def supports_render?(_), do: false
 end

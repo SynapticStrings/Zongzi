@@ -11,9 +11,11 @@ defmodule Zongzi.Windowing do
   alias Zongzi.Windowing.{Context, RestSplit3Beats}
 
   @doc """
-  对同一 Context 依次跑多个 windowing 策略，前一个的 ctx 传入后一个。
+  对同一 Context 跑一或多个 windowing 策略。
 
-  首个失败即短路。
+  执行多个策略一般用于针对 interv 的精确控制，前一个的 ctx 传入后一个。
+
+  Fail-fast when not succeed.
 
   ## Examples
 
@@ -21,7 +23,7 @@ defmodule Zongzi.Windowing do
       #   {:ok, segments} = Windowing.run_stages(ctx)
 
       # 链式多策略：
-      #   {:ok, segments} = Windowing.run_stages(ctx, [RestSplit3Beats, WholeTrack])
+      #   {:ok, segments} = Windowing.run_stages(ctx, [Strategy1, Strategy2])
   """
   @spec run_stages(Context.t(), [module()]) ::
           {:ok, [Zongzi.Windowing.Segment.t()]} | {:error, term()}

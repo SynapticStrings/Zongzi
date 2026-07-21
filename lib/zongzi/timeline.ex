@@ -86,22 +86,22 @@ defmodule Zongzi.Timeline do
 
   `note_order` → 链表，O(n)。
 
-  ## 参数
+  ## Attributes
 
-    * `track_id` — 必填
-    * `note_order` — `[SeqID.t()]`，有序列表（含墓碑）
+    * `track_id` - Required
+    * `note_order` - `[SeqID.t()]`，有序列表（含墓碑）
     * `seq_map` — 可选，默认 `%{}`
     * `tombstones` — `[SeqID.t()]`，可选，默认 `[]`
     * `next_seq` — 可选，默认 `max(note_order) + 1`
 
   ## Examples
 
-      iex> build(
+      iex> Timeline.build(
       ...>   %{track_id: "t1", note_order: [],
       ...>   seq_map: %{}, tombstones: []})
       {:ok, %Timeline{track_id: "t1", next_seq: 1}}
 
-      iex> build(
+      iex> Timeline.build(
       ...>   %{track_id: "t1", note_order: [1, 2],
       ...>   seq_map: %{1 => "N_a", 2 => "N_b"}, tombstones: [2]})
       {:ok, %Timeline{
@@ -165,7 +165,7 @@ defmodule Zongzi.Timeline do
 
   ## Examples
 
-      iex> new("Track-a") |> elem(1) |> generate()
+      iex> Timeline.new("Track-a") |> elem(1) |> Timeline.generate()
       {1, %Zongzi.Timeline{track_id: "Track-a", next_seq: 2}}
 
       iex> %Zongzi.Timeline{track_id: "Track-b", next_seq: 2} |> generate()
@@ -183,11 +183,7 @@ defmodule Zongzi.Timeline do
   @doc "将音符追加到 Timeline 末尾。"
   @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()}
   def insert_note(%__MODULE__{} = timeline, %Note{} = note) do
-    {seq_id, timeline} =
-      if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
-
-    note = %{note | seq_id: seq_id}
-    timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}
+    {timeline, note, seq_id} = update_timeline(timeline, note)
     timeline = link_tail(timeline, seq_id)
     {:ok, timeline, note}
   end
@@ -196,9 +192,7 @@ defmodule Zongzi.Timeline do
   @spec insert_note_before(t(), Note.t(), SeqID.t()) :: {:ok, t(), Note.t()} | {:error, term()}
   def insert_note_before(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
     with :ok <- assert_has_node(timeline, target_seq) do
-      {seq_id, timeline} = if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
-      note = %{note | seq_id: seq_id}
-      timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}
+      {timeline, note, seq_id} = update_timeline(timeline, note)
       timeline = link_before(timeline, seq_id, target_seq)
       {:ok, timeline, note}
     end
@@ -208,12 +202,24 @@ defmodule Zongzi.Timeline do
   @spec insert_note_after(t(), Note.t(), SeqID.t()) :: {:ok, t(), Note.t()} | {:error, term()}
   def insert_note_after(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
     with :ok <- assert_has_node(timeline, target_seq) do
-      {seq_id, timeline} = if note.seq_id, do: {note.seq_id, timeline}, else: generate(timeline)
-      note = %{note | seq_id: seq_id}
-      timeline = %__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}
+      {timeline, note, seq_id} = update_timeline(timeline, note)
       timeline = link_after(timeline, seq_id, target_seq)
       {:ok, timeline, note}
     end
+  end
+
+  # 不放后面了，就前面几个函数会被用到
+  defp update_timeline(%__MODULE__{} = timeline, %Note{} = note) do
+    {seq_id, timeline} = if note.seq_id do
+      # 为了规避哪个人想要将 seqID 小于目前 timeline 最大值的音符塞进来
+      next_seq = max(timeline.next_seq, note.seq_id + 1)
+      {next_seq - 1, %__MODULE__{timeline | next_seq: next_seq}}
+    else
+      {timeline.next_seq, %__MODULE__{timeline | next_seq: timeline.next_seq + 1}}
+    end
+
+    note = %{note | seq_id: seq_id}
+    {%__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}, note, seq_id}
   end
 
   @doc """
@@ -457,6 +463,9 @@ defmodule Zongzi.Timeline do
       end)
       |> MapSet.new()
 
+    # TODO
+    # merge_notes 会保留 s2 的 seq_map 条目
+    # 在这里还需要删掉吗？
     unreachable = MapSet.difference(timeline.tombstones, live_refs)
 
     timeline =
@@ -568,6 +577,15 @@ defmodule Zongzi.Timeline do
   defp assert_not_tombstone(%__MODULE__{tombstones: ts}, seq_id) do
     if MapSet.member?(ts, seq_id), do: {:error, {:is_tombstone, seq_id}}, else: :ok
   end
-
-
 end
+
+# defimpl Enumerable, for: Zongzi.Timeline do
+#   def count(%Zongzi.Timeline{seq_map: seq_map}) do
+#     {:ok, map_size(seq_map) + 2}
+#   end
+#   # 再加上边界条件，e.g. 新建的
+#
+#   def member?(%Zongzi.Timeline{}, note_seq_id) when is_integer(note_seq_id) and note_seq_id > 0 do
+#     # ...
+#   end
+# end

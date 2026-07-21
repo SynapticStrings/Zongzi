@@ -27,12 +27,12 @@ defmodule Zongzi.MixProject do
     "docs/en/guide/Overview.md",
     # Chinese doc
     "docs/zh/guide/Overview-zh.md",
-    "docs/zh/guide/TheLittleZongzi-zh.md",
+    "docs/zh/guide/TheLittleZongzi-zh.md"
   ]
 
   defp docs do
     [
-      # main: "readme",
+      main: "readme",
       extras: ["README.md", "README.zh-CN.md", "CHANGELOG.md"] ++ @extras_docs,
       before_closing_head_tag: &before_closing_head_tag/1,
       groups_for_modules: [
@@ -103,7 +103,7 @@ defmodule Zongzi.MixProject do
       ],
       groups_for_extras: [
         "English Documents": [~r/docs\/en\/.?/],
-        "中文文档": [~r/docs\/zh\/.?/]
+        中文文档: [~r/docs\/zh\/.?/]
       ],
       skip_undefined_reference_warnings_on: [
         "CHANGELOG.md"

@@ -15,7 +15,6 @@ defmodule Zongzi.Anchor.TripletMatch do
   - `{:active, match_count, {new_prev, current, new_next}}`
   - `{:tombstone, :merge | :delete}`
   - `{:tombstone, :delete, old_prev, old_next}` — delete tombstone hold legs
-  - `{:conflict, reason}`
   """
   @spec match(Intervention.t(), Timeline.t()) ::
           {:active, pos_integer(), triplet()}
@@ -57,13 +56,11 @@ defmodule Zongzi.Anchor.TripletMatch do
     end
   end
 
-  @doc "三元组依赖的 SeqID 列表（gc 用）。"
+  @doc "返回三元组对应的 SeqID 列表。"
   @spec referenced_seqs(triplet()) :: [SeqID.t()]
   def referenced_seqs({a, b, c}), do: Enum.reject([a, b, c], &is_nil/1)
 
-  @doc """
-  将 focus 洗成「左右均为 active（或 nil）」的三元组。
-  """
+  @doc "将 focus 洗成「左右均为 active（或 nil）」的三元组。"
   @spec scrub_triplet(Timeline.t(), SeqID.t()) ::
           {:ok, {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}} | {:error, :not_active}
   def scrub_triplet(%Timeline{} = timeline, focus) do

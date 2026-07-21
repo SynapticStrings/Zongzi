@@ -40,6 +40,8 @@ defmodule Zongzi.Anchor.NoteTriplet do
   alias Zongzi.Timeline.Query
 
   defmodule Options do
+    @moduledoc false
+
     defstruct match_threshold: 2,
               allow_follow_merge: false,
               orphan_direction: :next

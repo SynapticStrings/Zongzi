@@ -104,4 +104,7 @@ defmodule Zongzi.Intervention.Declaration do
               | {:split, children :: Enumerable.t(Intervention.t())}
 
   @optional_callbacks on_rebase: 4
+
+  def supports_on_rebase?(mod) when is_atom(mod), do: function_exported?(mod, :on_rebase, 4)
+  def supports_on_rebase?(_), do: false
 end

@@ -84,7 +84,10 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       # 锚在 b 上，删除 b
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.delete_note(tl, b)
-      assert {:ok, {:relocate, _relocated, meta}} = NoteTriplet.rebase(int, tl, ctx(), %NTOptions{})
+
+      assert {:ok, {:relocate, _relocated, meta}} =
+               NoteTriplet.rebase(int, tl, ctx(), %NTOptions{})
+
       assert meta.from == b
       assert meta.to == c
       assert meta.method == :nearest_active
@@ -111,7 +114,9 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.delete_note(tl, b)
-      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{orphan_direction: :never}) == {:conflict, :relocate_forbidden}
+
+      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{orphan_direction: :never}) ==
+               {:conflict, :relocate_forbidden}
     end
   end
 end

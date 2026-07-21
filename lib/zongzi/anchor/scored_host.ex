@@ -36,6 +36,7 @@ defmodule Zongzi.Anchor.ScoredHost do
 
   defmodule Options do
     @moduledoc false
+
     defstruct match_threshold: 2,
               allow_follow_merge: false,
               orphan_direction: :next,
@@ -87,10 +88,10 @@ defmodule Zongzi.Anchor.ScoredHost do
 
   @impl true
   def choose_host(focus, timeline, context, opts) do
-    scan_limit = Keyword.get(opts, :scan_limit, 4)
+    opts = normalize_opts(opts)
 
     neighbors =
-      Query.neighborhood(timeline, focus, active_only: true, count: scan_limit)
+      Query.neighborhood(timeline, focus, active_only: true, count: opts.scan_limit)
 
     candidates = Enum.map(neighbors.left ++ neighbors.right, &{&1.seq_id, &1.hops_from_focus})
 
@@ -113,19 +114,20 @@ defmodule Zongzi.Anchor.ScoredHost do
   # ---- private ----
 
   defp normalize_opts(%Options{} = opts), do: opts
-  defp normalize_opts(opts) when is_map(opts), do: struct(Options, Map.to_list(opts))
+  defp normalize_opts(opts) when is_map(opts), do: struct(Options, opts)
+  defp normalize_opts(opts) when is_list(opts), do: struct(Options, opts)
   defp normalize_opts(_), do: %Options{}
 
   defp do_scored_relocate(intervention, timeline, current, ctx, opts) do
     if opts.orphan_direction == :never do
       {:conflict, :relocate_forbidden}
     else
-      do_scored_relocate_inner(intervention, timeline, current, ctx)
+      do_scored_relocate_inner(intervention, timeline, current, ctx, opts)
     end
   end
 
-  defp do_scored_relocate_inner(intervention, timeline, current, context) do
-    case choose_host(current, timeline, context, []) do
+  defp do_scored_relocate_inner(intervention, timeline, current, context, opts) do
+    case choose_host(current, timeline, context, opts) do
       {:ok, best, meta} ->
         case TripletMatch.scrub_triplet(timeline, best) do
           {:ok, triplet} ->

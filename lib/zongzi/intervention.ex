@@ -58,4 +58,13 @@ defmodule Zongzi.Intervention do
     strategy: nil,
     declaration: nil
   ]
+
+  # 可以接 Zongzi.Util.Model 吗？
+  # 这个生命周期需要梳理一下
+
+  # 创建（绑定 declaration 以及 strategy）
+
+  # 压 scope
+
+  # 注入 snapshot 以及 payload
 end

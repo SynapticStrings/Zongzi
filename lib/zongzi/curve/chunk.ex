@@ -1,5 +1,5 @@
 defmodule Zongzi.Curve.Chunk do
-  # 一条曲线段
+  @moduledoc "一条曲线段"
   # adapter + container 模式，behaviour 回调直接在 adapter 模块上
   # container.points[].tick 为相对 start_tick 的偏移
   # end_tick 通过 adapter.span(container) + start_tick 按需计算，不存储

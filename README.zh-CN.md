@@ -58,3 +58,20 @@ def deps do
   [{:zongzi, github: "SynapticStrings/Zongzi", branch: "main"}]
 end
 ```
+
+# ROADMAP
+
+## 编码
+
+- Resolve 操作也来一个 resolve_all
+    - 可以照着 zongzi_feasibility 实现
+- Intervention 缺完整的生命周期
+- Scope 的单位（Tick frame seconds）
+- 内核的序列化（Note Key Timeline Intervention）
+- 工程卫生类
+    - 错误信息的分类 -> 每个模块自己负责吧，还用不上 Exception
+    - Telemetry
+    - Dialyzer
+    - Hex package
+
+## 文档

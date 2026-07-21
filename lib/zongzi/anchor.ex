@@ -37,6 +37,7 @@ defmodule Zongzi.Anchor do
       #     │
       #     └─ conflicts [{int, reason}]  ──→ 上浮 UI
   """
+  alias Zongzi.Intervention.Declaration
   alias Zongzi.{Intervention, Timeline}
 
   @type decision_label :: :preserve | :rebase | :relocate | :split | :conflict
@@ -142,7 +143,7 @@ defmodule Zongzi.Anchor do
   defp apply_on_rebase(int, meta, timeline, context, decision) do
     decl = int.declaration
 
-    if decl && function_exported?(decl, :on_rebase, 4) do
+    if Declaration.supports_on_rebase?(decl) do
       case decl.on_rebase(int, meta, timeline, context) do
         {:ok, updated} -> [{:ok, updated, decision}]
         {:split, children} -> Enum.map(children, &{:ok, &1, :split})
