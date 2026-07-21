@@ -73,5 +73,11 @@ end
     - Telemetry
     - Dialyzer
     - Hex package
+- 收束分窗和引擎到底时什么？`notes_for_seq` ？ `notes_by_seq` ？ `notes` ？
+    - 分清 Context 或 Engine
+- 把 Anchor 的 context 升级下？把常用字段固化进去？
 
 ## 文档
+
+- 确定 glossary
+    - 多语言的词典

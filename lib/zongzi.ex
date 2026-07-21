@@ -11,7 +11,7 @@ defmodule Zongzi do
       * 维护音符序列以及提供查询原语，以供和音符序列相关的结构锚定工作
   - 锚定策略（`Zongzi.Anchor`）
       * 执行编辑操作后的结构 rebase（`rebase_all` / Strategy / NoteTriplet / ScoredHost）
-  - 干涉数据（`Zongzi.Intervention`）
+  - 干预数据（`Zongzi.Intervention`）
       * 可改的上游生成结果之形状 + `Declaration` 语义契约
   - 分窗（`Zongzi.Windowing`）
       * post-rebase 瞬态 `Segment`（`Strategy.window/1`、默认 `RestSplit3Beats`）
