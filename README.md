@@ -1,5 +1,7 @@
 # Zongzi
 
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 Zongzi is:
 
 1. Providing functional components and specifications for building SVS(Singing Voice Synthesis) editors

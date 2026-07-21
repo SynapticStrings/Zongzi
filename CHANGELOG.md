@@ -31,8 +31,6 @@ Caller 集成反馈（zongzi_feasibility 落地）驱动的契约修订，以及
   结构决策可被 Caller 消费（指标/日志），无需事后对比 anchor 重推。
 - `Timeline.split_note/5`：新增可选 `attrs` 参数，透传 `Note.split/4`
   （如给后半音符不同 lyric）。
-- `Score.TrackBuilder`：纯文档模块，固化 Caller 侧「持轨」组件清单、
-  notes_by_seq 逐写操作同步契约与编辑回路；`Timeline` moduledoc 已交叉引用。
 - `Zongzi.Anchor.NoteTriplet.Options`：defstruct `match_threshold`（默认 2）、
   `allow_follow_merge`（默认 false）、`orphan_direction`（默认 `:next`）。
 - `Zongzi.Anchor.ScoredHost.Options`：同 NoteTriplet 字段 + `scan_limit`（默认 4）。

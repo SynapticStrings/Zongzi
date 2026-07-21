@@ -31,7 +31,7 @@ defmodule Zongzi.Timeline do
   ## 与 Caller 的配套约定
 
   Timeline 不持有 Note 实体，写操作后 Caller 侧 note 快照（notes_by_seq）
-  的同步约定见 `Zongzi.Score.TrackBuilder`。
+  的同步需要单独实现。
 
   ## 复杂度
 

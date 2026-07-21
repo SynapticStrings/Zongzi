@@ -1,5 +1,7 @@
 # 粽子
 
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 Zongzi 是：
 
 1. 提供构建 SVS 编辑器的函数式组件与规范
@@ -56,10 +58,3 @@ def deps do
   [{:zongzi, github: "SynapticStrings/Zongzi", branch: "main"}]
 end
 ```
-
-## ROADMAP
-
-- [ ] 打磨协议
-- [ ] 梳理文档以及用例
-- [ ] Translate document into English
-- [ ] Publish to hex.pm

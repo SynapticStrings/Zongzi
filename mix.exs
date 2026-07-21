@@ -24,7 +24,9 @@ defmodule Zongzi.MixProject do
   end
 
   @extras_docs [
-    "docs/zh/guide/README.md",
+    "docs/en/guide/Overview.md",
+    # Chinese doc
+    "docs/zh/guide/Overview-zh.md",
     "docs/zh/spec/MENTAL_MODELS.md",
     "docs/zh/spec/GOLDEN_SCENARIOS.md",
   ]
