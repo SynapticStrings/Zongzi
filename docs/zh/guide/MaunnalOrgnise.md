@@ -415,6 +415,12 @@ A.
 
 那么这就是 `scope/2` 所负责的事情，其接受 interv 本体以及 timeline 对象，来返回最保守的边界。
 
+对于 `snapshot/2` 而言，其在每次挂载时被触发，因为 interv 的挂载原始值是必须对应的。
+
+所以其接受原始值以及 interv ，其结果存入 interv 的 `:snapshot` 。
+
+`resolve/2` 则根据原始值以及 interv 决定是否可用。
+
 ---
 
 *以下部分尚未跟进*
