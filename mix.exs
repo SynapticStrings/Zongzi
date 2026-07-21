@@ -27,8 +27,7 @@ defmodule Zongzi.MixProject do
     "docs/en/guide/Overview.md",
     # Chinese doc
     "docs/zh/guide/Overview-zh.md",
-    "docs/zh/spec/MENTAL_MODELS.md",
-    "docs/zh/spec/GOLDEN_SCENARIOS.md",
+    "docs/zh/guide/TheLittleZongzi-zh.md",
   ]
 
   defp docs do
@@ -103,7 +102,7 @@ defmodule Zongzi.MixProject do
         ]
       ],
       groups_for_extras: [
-        English: [~r/docs\/en\/.?/],
+        "English Documents": [~r/docs\/en\/.?/],
         "中文文档": [~r/docs\/zh\/.?/]
       ],
       skip_undefined_reference_warnings_on: [

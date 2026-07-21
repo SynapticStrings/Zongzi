@@ -15,7 +15,7 @@ defmodule Zongzi.Windowing do
 
   首个失败即短路。
 
-  ## 用例
+  ## Examples
 
       # 默认单策略（RestSplit3Beats）：
       #   {:ok, segments} = Windowing.run_stages(ctx)

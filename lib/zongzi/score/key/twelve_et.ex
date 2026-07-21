@@ -1,15 +1,15 @@
 defmodule Zongzi.Score.Key.TwelveET do
   @moduledoc """
-  十二平均律实现。
+  Implement 12ET.
 
-  内部以 MIDI 编号（整数）存储。
+  Internally stored as MIDI numbers (integers).
   """
 
   use Zongzi.Score.Key
 
   defstruct [:midi]
 
-  # ---- Key 行为 ----
+  # ---- Key behaviour ----
 
   @impl true
   def new(midi) when is_number(midi), do: {:ok, %__MODULE__{midi: midi}}
@@ -17,7 +17,7 @@ defmodule Zongzi.Score.Key.TwelveET do
   @impl true
   def from_midi(midi, _ctx), do: new(midi)
 
-  # ---- Inner 协议实现 ----
+  # ---- implement Inner protocal ----
 
   defimpl Inner, for: __MODULE__ do
     def to_midi(%{midi: midi}), do: midi * 1.0

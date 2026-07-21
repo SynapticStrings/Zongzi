@@ -11,7 +11,7 @@ defmodule Zongzi.Helpers do
 
   否则会返回对应的错误。
 
-  ### 用例
+  ### Examples
 
       iex> Zongzi.Helpers.normalize_attrs(
       ...> [name: "初音ミク", platform: {:yamaha, :vocaloid}, extra: "公主殿下赛高！",

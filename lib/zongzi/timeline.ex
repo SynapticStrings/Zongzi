@@ -72,7 +72,7 @@ defmodule Zongzi.Timeline do
   @doc """
   创建空 Timeline。
 
-  ## 用例
+  ## Examples
 
       iex> new("Track-a")
       {:ok, %Timeline{track_id: "Track-a", next_seq: 1}}
@@ -163,7 +163,7 @@ defmodule Zongzi.Timeline do
   @doc """
   基于 Timeline 自持的计数器生成新 SeqID。
 
-  ## 用例
+  ## Examples
 
       iex> new("Track-a") |> elem(1) |> generate()
       {1, %Zongzi.Timeline{track_id: "Track-a", next_seq: 2}}

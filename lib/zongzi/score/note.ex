@@ -1,6 +1,6 @@
 defmodule Zongzi.Score.Note do
   @moduledoc """
-  有关音符的领域模型以及结构体。
+  Domain models and structures related to musical notes.
   """
   alias Zongzi.{Util.ID, Util.Model, Score.Key}
   alias Zongzi.Score.Tick
@@ -25,7 +25,7 @@ defmodule Zongzi.Score.Note do
     ],
     id_prefix: "Note_"
 
-  # 类型需要自己写
+  # Yeah, you need write type by yourself
   @type t :: %__MODULE__{
           id: ID.t(),
           start_tick: Tick.t(),
@@ -37,7 +37,7 @@ defmodule Zongzi.Score.Note do
           metadata: %{}
         }
 
-  # ---- 构造函数 ----
+  # ---- Constructor ----
 
   @doc """
   创建新音符。
@@ -45,7 +45,7 @@ defmodule Zongzi.Score.Note do
   `seq_id` 默认由下游 `Timeline.insert_note/2` 分配，
   反序列化时可以显式传入已有的 `:seq_id`。
 
-  ## 用例
+  ## Examples
 
       iex> new(%{id: "Note_12345"})
       {:ok, %Note{id: "Note_12345"}}
@@ -69,9 +69,11 @@ defmodule Zongzi.Score.Note do
     end
   end
 
-  # ---- 领域相关的验证函数 ----
+  # ---- Validator ----
 
   @doc """
+  Validate note.
+
   有以下情况不合法：
 
   * 音符的开始时刻在 0 之前
@@ -90,7 +92,7 @@ defmodule Zongzi.Score.Note do
 
   def validate(model), do: {:ok, model}
 
-  # ---- 业务函数 ----
+  # ---- Business functions ----
 
   @doc """
   拖拽音符到新的高度与 start_tick 。
@@ -121,20 +123,20 @@ defmodule Zongzi.Score.Note do
     end
   end
 
-  @doc "拖拽时长。"
+  @doc "Update note's duration."
   @spec drag_duration(t(), non_neg_integer()) :: {:ok, t()} | {:error, term()}
   def drag_duration(note, new_duraion) do
     update(note, duration_tick: new_duraion)
   end
 
-  @doc "修改歌词。"
+  @doc "Update note's lyric."
   @spec update_lyric(t(), String.t() | nil) :: {:ok, t()} | {:error, term()}
   def update_lyric(note, new_lyric) do
     update(note, lyric: new_lyric)
   end
 
   @doc """
-  修改标注。
+  Modify annotation.
 
   需要注意的是，标注是 UI 的标注，引擎以及插件不会读取
   """
@@ -147,7 +149,7 @@ defmodule Zongzi.Score.Note do
     end
   end
 
-  # ---- 元数据操作 ----
+  # ---- Metadata Operations ----
 
   @doc "更新附属的元数据，通过合并并入 current_metadata"
   @spec update_metadata(t(), map()) :: {:ok, t()} | {:error, term()}
@@ -185,7 +187,7 @@ defmodule Zongzi.Score.Note do
   def remove_metadata(note, keys) when is_list(keys),
     do: update(note, metadata: Map.drop(note.metadata, keys))
 
-  # ---- 音符切分与合并 ----
+  # ---- Split and Merge Note ----
 
   @doc """
   在指定绝对 tick 位置切开音符。
@@ -291,7 +293,7 @@ defmodule Zongzi.Score.Note do
     end
   end
 
-  # ---- 一些工具函数 ----
+  # ---- Toolkit functions ----
 
   # 执行合并
   defp do_merge(note1, note1_end, note2, note2_end, merged_id, lyric_merger, annotation_merger) do

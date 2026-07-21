@@ -1,30 +1,30 @@
 defmodule Zongzi.Util.Model do
   @moduledoc """
-  领域模型。
+  Domain model helper.
 
-  通过 `use Zongzi.Util.Model, keys: [...], id_prefix: "xxx"` 自动生成：
+  by invoke `use Zongzi.Util.Model, keys: [...], id_prefix: "xxx"` will generate automatically:
 
-  - 结构体定义
-  - `new/1` — 必须显式提供 `:id`（纯函数，不自动生成）
+  - struct defination
+  - `new/1` — Have to provide `:id` explicitly (a pure function, not automatically generated).
   - `validate/1`
   - `update/2`
 
-  ## ID 生成
+  ## ID Generation
 
-  `new/1` 不再自动生成 ID。调用方使用 `Zongzi.Util.ID.generate_id/1` 生成后传入。
-  这保证 Domain 层不依赖随机数。
+  `new/1` no longer generates an ID automatically. The caller generates the ID using `Zongzi.Util.ID.generate_id/1` and passes it in.
+  It ensures the Domain layer does not rely on random numbers.
 
-  ## 业务函数的编写（推荐）
+  ## Writing business functions (recommended)
 
-  返回 `{:ok, result}` 或 `{:error, reason}` 。
+  Return `{:ok, result}` or `{:error, reason}` .
   """
 
-  @doc "检查领域模型是否合法。"
+  @doc "Check if the domain model is valid."
   @callback validate(model :: struct()) :: {:ok, struct()} | {:error, term()}
   @optional_callbacks [validate: 1]
 
   defmacro __using__(opts) do
-    # 开发错误就直接 raise 吧。
+    # If there'e an error during developing, just RAISE it throw.
     keys = Keyword.fetch!(opts, :keys)
     id_prefix = Keyword.get(opts, :id_prefix)
 
@@ -36,7 +36,7 @@ defmodule Zongzi.Util.Model do
       @keys unquote(keys)
       defstruct @keys
 
-      @doc "根据属性创建新的结构体。`:id` 必须显式提供。"
+      @doc "Create a new struct based on the attribute. `:id` must be provided explicitly."
       def new(attrs) do
         with {:ok, normalized} <- normalize_attrs(attrs, @keys) do
           case Map.fetch(normalized, :id) do
@@ -50,7 +50,7 @@ defmodule Zongzi.Util.Model do
         end
       end
 
-      @doc "修改已有结构体的属性（不允许修改 ID）"
+      @doc "Modify the properties of an existing struct (modify id is not allowed)."
       def update(model, attrs) do
         with {:ok, normalized} <- normalize_attrs(attrs, @keys),
              :ok <- if(Map.has_key?(normalized, :id), do: {:error, :id_immutable}, else: :ok),

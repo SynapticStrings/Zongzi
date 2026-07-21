@@ -1,10 +1,10 @@
 defmodule Zongzi.Util.Object do
   @moduledoc """
-  值对象。
+  Value Object generator.
 
-  通过 `use Zongzi.Util.Object, keys: [...]` 自动生成：
+  write `use Zongzi.Util.Object, keys: [...]`, and generate:
 
-  - 结构体定义
+  - struct defination
   - `new/1`
   - `validate/1`
   - `update/2`
@@ -14,7 +14,7 @@ defmodule Zongzi.Util.Object do
   @optional_callbacks [validate: 1]
 
   defmacro __using__(opts) do
-    # 和 Domain 一样，这里一般是代码编写出了问题，可以 raise
+    # Similar to Domain, this usually indicates a problem with the code, also raise error.
     keys = Keyword.fetch!(opts, :keys)
 
     quote do
@@ -25,7 +25,7 @@ defmodule Zongzi.Util.Object do
 
       @behaviour Zongzi.Util.Object
 
-      @doc "根据属性创建新的值对象。"
+      @doc "Create a new VO based on the properties."
       def new(attrs) do
         with {:ok, normalized} <- normalize_attrs(attrs, @keys),
              obj = struct(__MODULE__, normalized),
@@ -34,7 +34,7 @@ defmodule Zongzi.Util.Object do
         end
       end
 
-      @doc "修改已有值对象的属性。"
+      @doc "Modify the property of an existing VO."
       def update(obj, attrs) do
         with {:ok, normalized} <- normalize_attrs(attrs, @keys),
              new_obj = struct(obj, normalized),
