@@ -337,11 +337,13 @@ A.
 
 在 rebase 时，就会根据上下文的声明来进行向两边合并的尝试。
 
-> 补充：如果两边都找不到活跃邻居怎么办？
+> 补充（当前实现）：`NoteTriplet.do_relocate` 总是尝试 relocate 到最近活跃邻居，
+> 不检查 tick 距离。两个音符可能在 Timeline 上相邻但实际相隔很远（大 gap），
+> 此时 relocate 的 intervention 到达新宿主后 scope 可能完全不重叠。
 >
-> `NoteTriplet` 按 `orphan_direction`（`:prev` 或 `:next`，Context 里设，默认 `:next`）
-> 双腿扫描。双腿均空时返回 `{:conflict, :adjacency_lost}`，不会静默丢弃。
-> 不需要引入 nil——`orphan_direction` 永远有向，优先级可配。
+> 原疑问「不需要 relocated 时 direction 是否引入 nil」指向的就是这个距离感知问题——
+> 目前代码尚未处理。如果 relocate 没有意义（删了就是删了），是否需要一种方式
+> 直接标记为不适用而非强行重定位，仍需讨论。
 
 > Q5. rebase_all 里面走了哪两步？和渲染时的 resolve 怎么分界？
 
