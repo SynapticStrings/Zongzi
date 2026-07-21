@@ -445,8 +445,8 @@ defmodule Zongzi.Timeline do
     live_refs =
       interventions
       |> Enum.flat_map(fn int ->
-        strategy = int.strategy || Zongzi.Anchor.NoteTriplet
-        strategy.referenced_seqs(int)
+        {strategy_mod, _opts} = int.strategy || {Zongzi.Anchor.NoteTriplet, %{}}
+        strategy_mod.referenced_seqs(int)
       end)
       |> MapSet.new()
 

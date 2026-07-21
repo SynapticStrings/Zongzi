@@ -22,16 +22,15 @@ defmodule Zongzi.Anchor.NoteTriplet do
   - `2` = 默认：≥2/3 匹配即存活
   - `1` = lenient：仅 current 匹配即可（适合 pitch 等 parameter channel）
 
-  ## merged_away
+  ## Options
 
-  默认 `{:conflict, :merged_away}`。若 Context 里设 `allow_follow_merge: true`，
-  则尝试跟随合并目标音符重定位。
+  本策略专属配置，挂在 `Intervention.strategy` 的 `{NoteTriplet, %Options{…}}` 元组中。
+  rebase 的第四参数即为 `%Options{}`（或兼容 map）。
 
-  ## Context 键
-
-  - `:match_threshold` — 存活阈值（默认 2）
-  - `:allow_follow_merge` — 是否允许跟踪 merge 目标
-  - `:orphan_direction` — `:prev` | `:next` | `:never`（默认 `:next`）
+  - `:match_threshold` — 存活阈值（默认 2）。`1` = lenient（仅 current 匹配即可，适合 pitch channel）
+  - `:allow_follow_merge` — 是否允许跟踪 merge 目标重定位（默认 false）
+  - `:orphan_direction` — `:prev` | `:next` | `:never`（默认 `:next`）。
+    `:never` 时 delete tombstone 直接报 conflict，不尝试 relocate。
   """
 
   @behaviour Zongzi.Anchor.Strategy
@@ -40,19 +39,25 @@ defmodule Zongzi.Anchor.NoteTriplet do
   alias Zongzi.Anchor.TripletMatch
   alias Zongzi.Timeline.Query
 
+  defmodule Options do
+    defstruct match_threshold: 2,
+              allow_follow_merge: false,
+              orphan_direction: :next
+  end
+
   @impl true
   def rebase(
         %Intervention{anchor: {_old_prev, current, _old_next}} = int,
         %Timeline{} = timeline,
-        ctx
+        _ctx,
+        opts
       ) do
-    context = Map.merge(ctx, %{})
-    threshold = Map.get(context, :match_threshold, 2)
+    opts = normalize_opts(opts)
 
     case TripletMatch.match(int, timeline) do
       {:active, match_count, {new_prev, _current, new_next}} ->
         cond do
-          match_count >= threshold ->
+          match_count >= opts.match_threshold ->
             if match_count == 3 do
               {:ok, :preserve}
             else
@@ -64,14 +69,14 @@ defmodule Zongzi.Anchor.NoteTriplet do
         end
 
       {:tombstone, :merge} ->
-        if Map.get(context, :allow_follow_merge, false) do
-          follow_merge(int, timeline, current, context)
+        if opts.allow_follow_merge do
+          follow_merge(int, timeline, current)
         else
           {:conflict, :merged_away}
         end
 
       {:tombstone, :delete, _left_leg, _right_leg} ->
-        do_relocate(int, timeline, current, context)
+        do_relocate(int, timeline, current, opts.orphan_direction)
     end
   end
 
@@ -83,8 +88,13 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
   # ---- private ----
 
+  # Normalize opts to %Options{} struct, filling defaults from anything map-like.
+  defp normalize_opts(%Options{} = opts), do: opts
+  defp normalize_opts(opts) when is_map(opts), do: struct(Options, Map.to_list(opts))
+  defp normalize_opts(_), do: %Options{}
+
   # 跟随合并目标重定位
-  defp follow_merge(int, %Timeline{} = timeline, dead_seq, _context) do
+  defp follow_merge(int, %Timeline{} = timeline, dead_seq) do
     merged_id = Map.get(timeline.seq_map, dead_seq)
 
     active_merged =
@@ -109,8 +119,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
   end
 
   # relocate：从当前位置（墓碑）向两侧扫描活跃邻居
-  defp do_relocate(int, timeline, current, context) do
-    direction = Map.get(context, :orphan_direction, :next)
+  defp do_relocate(int, timeline, current, direction) do
     case direction do
       :never -> {:conflict, :relocate_forbidden}
       _ -> do_relocate_inner(int, timeline, current, direction)

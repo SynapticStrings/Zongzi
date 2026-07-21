@@ -37,9 +37,11 @@ defmodule Zongzi.Anchor.Strategy do
   @doc """
   判定 intervention 的结构锚是否存活，必要时改写或重定位。
 
+  第四参数 `opts` 为本策略专属配置（struct 或 map），
+  由 `Intervention.strategy` 的 `{module(), opts}` 元组传入。
   不得做语义 snapshot 比对（那是 Declaration.resolve）。
   """
-  @callback rebase(Intervention.t(), Timeline.t(), Context.t()) :: decision()
+  @callback rebase(Intervention.t(), Timeline.t(), Context.t(), opts :: term()) :: decision()
 
   @doc """
   返回 intervention 锚所引用的全部 SeqID 集合。

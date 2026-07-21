@@ -16,16 +16,15 @@ defmodule Zongzi.Anchor.ScoredHost do
 
   同分且同 hops → `{:conflict, :ambiguous_host}`。
 
-  match_threshold / allow_follow_merge 从 Context 或 opts 取，语义同 NoteTriplet。
+  match_threshold / allow_follow_merge 语义同 NoteTriplet，通过 `ScoredHost.Options` 结构传递。
 
-  ## Context 键
+  ## Context 键（共享快照）
 
   - `:notes_by_seq` — `%{SeqID.t() => Note.t()}`
   - `:seq_to_window` — `%{SeqID.t() => window_id}`
   - `:focus_note` — 原始 focus 的 Note
-  - `:match_threshold` — 存活阈值（默认 2）
-  - `:allow_follow_merge` — 是否允许跟踪 merge 目标
-  - `:allow_relocate` — `true`（默认）| `false`；`false` 时 delete tombstone 直接报 conflict，不尝试 relocate
+
+  策略专属旋钮见 `ScoredHost.Options`。
   """
 
   @behaviour Zongzi.Anchor.Strategy
@@ -35,21 +34,29 @@ defmodule Zongzi.Anchor.ScoredHost do
   alias Zongzi.Timeline.{Query, SeqID}
   alias Zongzi.Score.Key
 
+  defmodule Options do
+    @moduledoc false
+    defstruct match_threshold: 2,
+              allow_follow_merge: false,
+              orphan_direction: :next,
+              scan_limit: 4
+  end
+
   @type triplet :: {SeqID.t() | nil, SeqID.t(), SeqID.t() | nil}
 
   @impl true
   def rebase(
         %Intervention{anchor: {_old_prev, current, _old_next}} = int,
         %Timeline{} = timeline,
-        ctx
+        ctx,
+        opts
       ) do
-    context = Map.merge(ctx, %{})
-    threshold = Map.get(context, :match_threshold, 2)
+    opts = normalize_opts(opts)
 
     case TripletMatch.match(int, timeline) do
       {:active, match_count, {new_prev, _current, new_next}} ->
         cond do
-          match_count >= threshold ->
+          match_count >= opts.match_threshold ->
             if match_count == 3 do
               {:ok, :preserve}
             else
@@ -61,14 +68,14 @@ defmodule Zongzi.Anchor.ScoredHost do
         end
 
       {:tombstone, :merge} ->
-        if Map.get(context, :allow_follow_merge, false) do
-          NoteTriplet.rebase(int, timeline, context)
+        if opts.allow_follow_merge do
+          NoteTriplet.rebase(int, timeline, ctx, %NoteTriplet.Options{})
         else
           {:conflict, :merged_away}
         end
 
       {:tombstone, :delete, _left_leg, _right_leg} ->
-        do_scored_relocate(int, timeline, current, context)
+        do_scored_relocate(int, timeline, current, ctx, opts)
     end
   end
 
@@ -105,11 +112,15 @@ defmodule Zongzi.Anchor.ScoredHost do
 
   # ---- private ----
 
-  defp do_scored_relocate(intervention, timeline, current, context) do
-    if Map.get(context, :allow_relocate, true) do
-      do_scored_relocate_inner(intervention, timeline, current, context)
-    else
+  defp normalize_opts(%Options{} = opts), do: opts
+  defp normalize_opts(opts) when is_map(opts), do: struct(Options, Map.to_list(opts))
+  defp normalize_opts(_), do: %Options{}
+
+  defp do_scored_relocate(intervention, timeline, current, ctx, opts) do
+    if opts.orphan_direction == :never do
       {:conflict, :relocate_forbidden}
+    else
+      do_scored_relocate_inner(intervention, timeline, current, ctx)
     end
   end
 

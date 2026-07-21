@@ -4,6 +4,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
   alias Zongzi.{Intervention, Timeline, Util.ID, Anchor.Context}
   alias Zongzi.Score.{Note, Key}
   alias Zongzi.Anchor.NoteTriplet
+  alias Zongzi.Anchor.NoteTriplet.Options, as: NTOptions
 
   defp ctx(opts \\ %{}), do: Context.new(opts)
 
@@ -45,7 +46,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
     test "无变更时返回 :preserve" do
       {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
-      assert NoteTriplet.rebase(int, tl, ctx()) == {:ok, :preserve}
+      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{}) == {:ok, :preserve}
     end
   end
 
@@ -54,7 +55,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       {:ok, tl, {a, b, c}, {_n1, n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
       {:ok, tl, _before, after_note} = Timeline.split_note(tl, n2, 720, "new_split_id")
-      assert {:ok, {:rebase, updated}} = NoteTriplet.rebase(int, tl, ctx())
+      assert {:ok, {:rebase, updated}} = NoteTriplet.rebase(int, tl, ctx(), %NTOptions{})
       assert updated.anchor == {a, n2.seq_id, after_note.seq_id}
     end
   end
@@ -64,7 +65,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.move_note(tl, b, c, :after)
-      assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :adjacency_lost}
+      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{}) == {:conflict, :adjacency_lost}
     end
   end
 
@@ -73,7 +74,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       {:ok, tl, {_a, b, c}, {_n1, n2, n3}} = build_timeline_3()
       int = build_intervention({b, c, nil})
       {:ok, tl, _merged} = Timeline.merge_notes(tl, n2, n3, "merged_id")
-      assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :merged_away}
+      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{}) == {:conflict, :merged_away}
     end
   end
 
@@ -83,7 +84,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       # 锚在 b 上，删除 b
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.delete_note(tl, b)
-      assert {:ok, {:relocate, _relocated, meta}} = NoteTriplet.rebase(int, tl, ctx())
+      assert {:ok, {:relocate, _relocated, meta}} = NoteTriplet.rebase(int, tl, ctx(), %NTOptions{})
       assert meta.from == b
       assert meta.to == c
       assert meta.method == :nearest_active
@@ -95,7 +96,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       {:ok, tl} = Timeline.delete_note(tl, b)
 
       assert {:ok, {:relocate, _relocated, meta}} =
-               NoteTriplet.rebase(int, tl, ctx(orphan_direction: :prev))
+               NoteTriplet.rebase(int, tl, ctx(), %NTOptions{orphan_direction: :prev})
 
       assert meta.to == a
     end
@@ -103,14 +104,14 @@ defmodule Zongzi.Anchor.NoteTripletTest do
     test "孤儿找不到邻居 → conflict" do
       {:ok, tl, {a, _b, _c}, _notes} = build_timeline_3()
       int = build_intervention({a, 99999, nil})
-      assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :adjacency_lost}
+      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{}) == {:conflict, :adjacency_lost}
     end
 
     test "orphan_direction 为 never 时直接报 conflict" do
       {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.delete_note(tl, b)
-      assert NoteTriplet.rebase(int, tl, ctx(orphan_direction: :never)) == {:conflict, :relocate_forbidden}
+      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{orphan_direction: :never}) == {:conflict, :relocate_forbidden}
     end
   end
 end

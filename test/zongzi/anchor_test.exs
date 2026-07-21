@@ -154,7 +154,7 @@ defmodule Zongzi.AnchorTest do
     test "intervention carries explicit strategy module, it is used" do
       {:ok, tl, {a, b, c, _d}, _notes} = build_timeline_4()
       int = build_intervention({a, b, c})
-      int = %{int | strategy: Zongzi.Anchor.NoteTriplet}
+      int = %{int | strategy: {Zongzi.Anchor.NoteTriplet, %Zongzi.Anchor.NoteTriplet.Options{}}}
       {:ok, tl} = Timeline.delete_note(tl, b)
       result = Anchor.rebase_all([int], tl)
       assert length(result.survived) == 1
@@ -170,7 +170,7 @@ defmodule Zongzi.AnchorTest do
     def referenced_seqs(_), do: []
 
     @impl true
-    def rebase(_int, _tl, _ctx), do: {:ok, :preserve}
+    def rebase(_int, _tl, _ctx, _opts), do: {:ok, :preserve}
 
     @impl true
     def choose_host(_f, _tl, _ctx, _opts), do: {:conflict, :no_host}

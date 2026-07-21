@@ -44,7 +44,7 @@ defmodule Zongzi.Intervention do
           payload: term(),
           snapshot: term(),
           scope: term(),
-          strategy: module() | nil,
+          strategy: {module(), options :: term()} | nil,
           declaration: module()
         }
 

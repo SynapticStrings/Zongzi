@@ -4,6 +4,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
   alias Zongzi.{Intervention, Timeline, Anchor.Context}
   alias Zongzi.Score.{Note, Key}
   alias Zongzi.Anchor.ScoredHost
+  alias Zongzi.Anchor.ScoredHost.Options, as: SHOptions
 
   defp ctx(opts \\ %{}), do: Context.new(opts)
 
@@ -45,7 +46,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
     test "3/3 match" do
       {tl, [a, b, c]} = build_tl([note(60), note(62), note(64)])
       int = int_at(b.seq_id, a.seq_id, c.seq_id)
-      assert ScoredHost.rebase(int, tl, ctx()) == {:ok, :preserve}
+      assert ScoredHost.rebase(int, tl, ctx(), %SHOptions{}) == {:ok, :preserve}
     end
   end
 
@@ -54,7 +55,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       {tl, [a, b, c]} = build_tl([note(60), note(62), note(64)])
       int = int_at(b.seq_id, a.seq_id, c.seq_id)
       {:ok, tl, _before, after_note} = Timeline.split_note(tl, b, 240, "split_id")
-      assert {:ok, {:rebase, updated}} = ScoredHost.rebase(int, tl, ctx())
+      assert {:ok, {:rebase, updated}} = ScoredHost.rebase(int, tl, ctx(), %SHOptions{})
       assert updated.anchor == {a.seq_id, b.seq_id, after_note.seq_id}
     end
   end
@@ -64,7 +65,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       {tl, [a, b]} = build_tl([note(60), note(60)])
       int = int_at(b.seq_id, nil, nil)
       {:ok, tl, _merged} = Timeline.merge_notes(tl, a, b, "merged")
-      assert ScoredHost.rebase(int, tl, ctx()) == {:conflict, :merged_away}
+      assert ScoredHost.rebase(int, tl, ctx(), %SHOptions{}) == {:conflict, :merged_away}
     end
   end
 
@@ -78,7 +79,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       focus = d
 
       assert {:ok, {:relocate, _relocated, meta}} =
-               ScoredHost.rebase(int, tl, ctx(notes_by_seq: notes_map, focus_note: focus))
+               ScoredHost.rebase(int, tl, ctx(notes_by_seq: notes_map, focus_note: focus), %SHOptions{})
 
       assert meta.to == d2.seq_id
       assert meta.method == :scored
@@ -96,7 +97,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       focus = d
 
       assert {:conflict, :ambiguous_host} =
-               ScoredHost.rebase(int, tl, ctx(notes_by_seq: notes_map, focus_note: focus))
+               ScoredHost.rebase(int, tl, ctx(notes_by_seq: notes_map, focus_note: focus), %SHOptions{})
     end
   end
 
@@ -114,7 +115,8 @@ defmodule Zongzi.Anchor.ScoredHostTest do
                ScoredHost.rebase(
                  int,
                  tl,
-                 ctx(notes_by_seq: notes_map, seq_to_window: seq_to_window, focus_note: focus)
+                 ctx(notes_by_seq: notes_map, seq_to_window: seq_to_window, focus_note: focus),
+                 %SHOptions{}
                )
 
       assert meta.to == c.seq_id
@@ -126,14 +128,14 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       {tl, [c]} = build_tl([note(60)])
       int = int_at(c.seq_id, nil, nil)
       {:ok, tl} = Timeline.delete_note(tl, c.seq_id)
-      assert ScoredHost.rebase(int, tl, ctx()) == {:conflict, :no_host}
+      assert ScoredHost.rebase(int, tl, ctx(), %SHOptions{}) == {:conflict, :no_host}
     end
 
     test "allow_relocate: false 时直接报 conflict" do
       {tl, [c, d, e]} = build_tl([note(60), note(62), note(64)])
       int = int_at(d.seq_id, c.seq_id, e.seq_id)
       {:ok, tl} = Timeline.delete_note(tl, d.seq_id)
-      assert ScoredHost.rebase(int, tl, ctx(allow_relocate: false)) == {:conflict, :relocate_forbidden}
+      assert ScoredHost.rebase(int, tl, ctx(), %SHOptions{orphan_direction: :never}) == {:conflict, :relocate_forbidden}
     end
   end
 

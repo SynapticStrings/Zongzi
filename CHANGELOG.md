@@ -33,6 +33,39 @@ Caller 集成反馈（zongzi_feasibility 落地）驱动的契约修订：
   余量过宽会把本应切开的 gap 粘连成一窗。
 - 明确 `on_rebase` split 的子干预不再过 strategy.rebase，锚正确性由 declaration 负责。
 
+### Strategy Options 解耦 — 2026/07/21
+
+Strategy 专属旋钮从 `Anchor.Context` map 中拆出，挂到 `Intervention.strategy` 的
+`{module(), options}` 元组中，共享快照保留在 Context。
+
+#### 破坏性变更
+
+- **`Strategy.rebase/3` → `rebase/4`**：新增第 4 参 `opts :: term()`（策略专属 struct/map），
+  由 `Intervention.strategy` 元组拆出传入。自定义策略需适配。
+- **`Intervention.strategy` 类型变更**：`module() | nil` → `{module(), options :: term()} | nil`。
+  `nil` 时 dispatch 用 `{default_strategy, %{}}` 回退，策略自行 normalize。
+- **`Anchor.Context` 不再携带策略级键**：移除 `:match_threshold`、`:allow_follow_merge`、
+  `:orphan_direction`、`:allow_relocate`（后两者合并为 `Options` 中的 `orphan_direction: :never`）。
+  共享键 `notes_by_seq`、`seq_to_window`、`focus_note`、`channel`、`extra` 保持。
+- **`allow_relocate` 合并为 `orphan_direction: :never`**：`NoteTriplet.Options.orphan_direction`
+  取值 `:prev | :next | :never`（默认 `:next`）。`:never` 时 delete tombstone 直接报
+  `{:conflict, :adjacency_lost}`，不尝试 relocate。`ScoredHost.Options` 同。
+
+#### 新增
+
+- `Zongzi.Anchor.NoteTriplet.Options`：defstruct `match_threshold`（默认 2）、
+  `allow_follow_merge`（默认 false）、`orphan_direction`（默认 `:next`）。
+- `Zongzi.Anchor.ScoredHost.Options`：同 NoteTriplet 字段 + `scan_limit`（默认 4）。
+- 两策略均内置 `normalize_opts/1`，接受 `%Options{}` / plain map / anything，
+  填充 struct 默认值。dispatch 对 nil strategy 传 `%{}`，策略自行容忍。
+- `do_relocate` bugfix：修复 working tree 中 `opts.allow_follow_merge` 误传给
+  `orphan_direction` 的问题（布尔值进 case 匹配 `:prev|:next` 会 FunctionClauseError）。
+
+#### 重构
+
+- `Timeline.gc/2`：dispatch 层适配 `{module, opts}` 元组，拆出 module 再调 `referenced_seqs`。
+- `Anchor.rebase_all/4`：dispatch 拆 `{strategy_mod, strategy_opts}` 元组并透传 opts。
+
 ## 0.1.0 — 2026/07/14
 
 初始版本。Zongzi 作为 SVS 领域的函数式组件库，提供 Score 基础、Timeline 写路径、

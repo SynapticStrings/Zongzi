@@ -3,7 +3,7 @@ defmodule Zongzi.Anchor do
   Intervention 结构在变基时的批量编排。
 
   消费 edit batch（一组 interventions + 编辑后的 Timeline），
-  对每个 intervention 调其 strategy 的 `rebase/3`，
+  对每个 intervention 调其 strategy 的 `rebase/4`，
   按决策分类为 `:survived` 与 `:conflicts`。
 
   这是纯函数编排——不调用引擎、不比对 snapshot。
@@ -90,9 +90,13 @@ defmodule Zongzi.Anchor do
 
     interventions
     |> Enum.flat_map(fn int ->
-      strategy = int.strategy || default_strategy
+      {strategy_mod, strategy_opts} =
+        case int.strategy do
+          {mod, opts} -> {mod, opts}
+          nil -> {default_strategy, %{}}
+        end
 
-      case strategy.rebase(int, timeline, context) do
+      case strategy_mod.rebase(int, timeline, context, strategy_opts) do
         {:ok, :preserve} ->
           meta = %{decision: :preserve, old_anchor: int.anchor, new_anchor: int.anchor}
           apply_on_rebase(int, meta, timeline, context, :preserve)
