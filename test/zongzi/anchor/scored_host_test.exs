@@ -128,6 +128,13 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       {:ok, tl} = Timeline.delete_note(tl, c.seq_id)
       assert ScoredHost.rebase(int, tl, ctx()) == {:conflict, :no_host}
     end
+
+    test "allow_relocate: false 时直接报 conflict" do
+      {tl, [c, d, e]} = build_tl([note(60), note(62), note(64)])
+      int = int_at(d.seq_id, c.seq_id, e.seq_id)
+      {:ok, tl} = Timeline.delete_note(tl, d.seq_id)
+      assert ScoredHost.rebase(int, tl, ctx(allow_relocate: false)) == {:conflict, :relocate_forbidden}
+    end
   end
 
   describe "choose_host/4 callback" do

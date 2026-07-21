@@ -25,6 +25,7 @@ defmodule Zongzi.Anchor.ScoredHost do
   - `:focus_note` — 原始 focus 的 Note
   - `:match_threshold` — 存活阈值（默认 2）
   - `:allow_follow_merge` — 是否允许跟踪 merge 目标
+  - `:allow_relocate` — `true`（默认）| `false`；`false` 时 delete tombstone 直接报 conflict，不尝试 relocate
   """
 
   @behaviour Zongzi.Anchor.Strategy
@@ -105,6 +106,14 @@ defmodule Zongzi.Anchor.ScoredHost do
   # ---- private ----
 
   defp do_scored_relocate(intervention, timeline, current, context) do
+    if Map.get(context, :allow_relocate, true) do
+      do_scored_relocate_inner(intervention, timeline, current, context)
+    else
+      {:conflict, :relocate_forbidden}
+    end
+  end
+
+  defp do_scored_relocate_inner(intervention, timeline, current, context) do
     case choose_host(current, timeline, context, []) do
       {:ok, best, meta} ->
         case TripletMatch.scrub_triplet(timeline, best) do

@@ -23,6 +23,9 @@ Caller 集成反馈（zongzi_feasibility 落地）驱动的契约修订：
   （如给后半音符不同 lyric）。
 - `Score.TrackBuilder`：纯文档模块，固化 Caller 侧「持轨」组件清单、
   notes_by_seq 逐写操作同步契约与编辑回路；`Timeline` moduledoc 已交叉引用。
+- `Anchor.Context` 新增 `:allow_relocate` 键（默认 `true`）：设为 `false` 时，
+  delete tombstone 上的 intervention 直接报 `{:conflict, :relocate_forbidden}`，
+  不尝试 relocate 到邻居。NoteTriplet 和 ScoredHost 均支持。
 
 ### 文档
 

@@ -16,6 +16,7 @@ defmodule Zongzi.Anchor.Context do
   - `:seq_to_window` — 可选，`%{SeqID.t() => window_id}`；rebase 时若提供，应为**上一轮**窗映射（启发式）。本轮最终切片在 rebase **之后**由 `Windowing.Strategy.window/1` 重算
   - `:focus_note` — 孤儿 relocate 时原始 focus 的 Note（已删时可从旁路恢复）
   - `:orphan_direction` — `:prev` | `:next`（NoteTriplet 默认 `:next`）
+  - `:allow_relocate` — `true`（默认）| `false`；`false` 时 delete tombstone 直接报 conflict，不尝试 relocate
   - `:channel` — atom
   - `:extra` — map，引擎/插件私货
   """
