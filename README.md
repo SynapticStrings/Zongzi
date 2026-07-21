@@ -60,6 +60,7 @@ end
 ## ROADMAP
 
 - [ ] 打磨协议
+    - [ ] 重构 `Zongzi.Anchor.COntext` 以及上下文传递
 - [ ] 梳理文档以及用例
 - [ ] Translate document into English
 - [ ] Publish to hex.pm

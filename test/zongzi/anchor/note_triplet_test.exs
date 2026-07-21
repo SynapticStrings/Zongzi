@@ -106,11 +106,11 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       assert NoteTriplet.rebase(int, tl, ctx()) == {:conflict, :adjacency_lost}
     end
 
-    test "allow_relocate: false 时直接报 conflict" do
+    test "orphan_direction 为 never 时直接报 conflict" do
       {:ok, tl, {a, b, c}, {_n1, _n2, _n3}} = build_timeline_3()
       int = build_intervention({a, b, c})
       {:ok, tl} = Timeline.delete_note(tl, b)
-      assert NoteTriplet.rebase(int, tl, ctx(allow_relocate: false)) == {:conflict, :relocate_forbidden}
+      assert NoteTriplet.rebase(int, tl, ctx(orphan_direction: :never)) == {:conflict, :relocate_forbidden}
     end
   end
 end

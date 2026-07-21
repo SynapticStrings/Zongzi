@@ -31,8 +31,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
   - `:match_threshold` — 存活阈值（默认 2）
   - `:allow_follow_merge` — 是否允许跟踪 merge 目标
-  - `:allow_relocate` — `true`（默认）| `false`；`false` 时 delete tombstone 直接报 conflict，不尝试 relocate
-  - `:orphan_direction` — `:prev` | `:next`（默认 `:next`）
+  - `:orphan_direction` — `:prev` | `:next` | `:never`（默认 `:next`）
   """
 
   @behaviour Zongzi.Anchor.Strategy
@@ -111,16 +110,14 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
   # relocate：从当前位置（墓碑）向两侧扫描活跃邻居
   defp do_relocate(int, timeline, current, context) do
-    if Map.get(context, :allow_relocate, true) do
-      do_relocate_inner(int, timeline, current, context)
-    else
-      {:conflict, :relocate_forbidden}
+    direction = Map.get(context, :orphan_direction, :next)
+    case direction do
+      :never -> {:conflict, :relocate_forbidden}
+      _ -> do_relocate_inner(int, timeline, current, direction)
     end
   end
 
-  defp do_relocate_inner(int, timeline, current, context) do
-    direction = Map.get(context, :orphan_direction, :next)
-
+  defp do_relocate_inner(int, timeline, current, direction) do
     prev_cand = Query.scan(timeline, current, :prev, active_only: true, limit: 1)
     next_cand = Query.scan(timeline, current, :next, active_only: true, limit: 1)
 
