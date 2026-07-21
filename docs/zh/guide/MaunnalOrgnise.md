@@ -246,7 +246,7 @@ A.
 
 一个音符产生结构变化（Timeline 的变化）以及部分的语义变化，就会「污染」到临近的音符。
 
-所以三元组就是此刻给定音符的前一个、它本身，以及下一个音符（其实是 SeqID 组成的，要是没有那就 nil 了）。可以看出三元组的策略其实是相当保守的，是一种「宁肯错杀，绝不放过」的思路。
+所以三元组就是此刻给定音符的前一个、它本身，以及下一个音符的标识符（其实是 SeqID 组成的，要是没有那就 nil 了）。这个策略其实相当保守，是一种「宁肯错杀，绝不放过」的思路，因为误判的代价也就是下游引擎/外部调用者/用户要多梳理些相关逻辑罢了。
 
 > Q2. payload 里存什么？
 
@@ -274,7 +274,7 @@ A. 那就是针对这个 interv 执行锚定所要走的策略了。一般是实
 
 > Phase2Fin. 在上一步的 A4 图上，画一个 Intervention 挂到中间那个 note 上。标出 anchor = 哪三个 seq_id，snapshot = 什么内容，scope = 什么范围。
 
-## Phase 3：编辑之后怎么同步（Anchor + Rebase）
+## Phase 3：锚定、同步与变基 —— 操作之后
 
 涉及的模块：
 
@@ -287,20 +287,53 @@ A. 那就是针对这个 interv 执行锚定所要走的策略了。一般是实
 
 > Q1. rebase_all 输入什么输出什么？
 
----
+A.
 
-*以下部分尚未跟进*
+其输入包括时间线，介入数据本体以及上下文、选项。
+目前选项仅包括 Interv 未指定的 strategy 字段本身。
+上下文的自由度很大，其内容需要看 Interv 的 strategy 模块以及策略声明模块需要什么。
 
-2. "结构层冲突"是指什么？（preserve / rebase / relocate / split / conflict 各是什么场景）
-3. split note 时，挂在原 note 上的 Intervention 怎么处理？
-4. delete note 时，Intervention 怎么可能 relocate？
+最后的输出则是结构变化下无变化的、存在冲突的，以及经过介入声明根据策略被决策处理的那些介入数据。
 
-产出：从 Phase 1 的三音符 Timeline 出发，画三个 case 的 before/after：
-- split 中间音符 → 两个子 intervention
-- delete 中间音符 → intervention relocate 到邻居
-- 改歌词不拆音符 → intervention preserve
+> Q2. "结构层冲突"是指什么？（preserve / rebase / relocate / split / conflict 各是什么场景）
 
-## Phase 4：引擎怎么消费（Windowing + Engine）
+A.
+
+可以看一下 `t:Zongzi.Anchor.decision_label` 的声明，其包括了以下几类：
+
+- `:preserve` - 介入数据保持不变
+- `:rebase` - 介入数据的锚定对象被重定位（e.g. 临近的音符变化但没有影响到这个音符）
+- `:relocated` - 因为音符的拖拽被重定位
+- `:split` - 这个音符被拆成了一系列小音符，部分 interv 需要被保留的情况
+- `:conflict` - 存在冲突
+
+其是 `strategy.rebase/3` 经过可选的 `decl.on_rebase/4` 两步处理返回的结果。
+
+> Q3. split note 时，挂在原 note 上的 Intervention 怎么处理？
+
+A. 按照我本来的想法是附近的都无效掉，但对于部分 interv 不用全部 discard 掉。所以可以交给 declara 的可选 callback `on_rebase/4` 来实现。
+
+> Q4. delete note 时，Intervention 怎么可能 relocate？
+
+A.
+
+我们回到 phase1 的那个例子吧。
+删掉的 $6$ 号音符可能挂着两边音符的 Interv 的尾巴。
+
+所以在其上的 Interv 有可能和临近的活跃音符有关。
+
+在 rebase 时，就会根据上下文的声明来进行向两边合并的尝试。
+
+> 疑问：如果不需要 relocated 呢？删了就是删了。
+>
+> 那么 direction 是不是还要引入 nil ，这样讲 all 设为 [] 直接报 conflict 。
+
+> phase3Fin: 从 Phase 1 的三音符 Timeline 出发，画三个 case 的 before/after：
+> - split 中间音符 → 两个子 intervention
+> - delete 中间音符 → intervention relocate 到邻居
+> - 改歌词不拆音符 → intervention preserve
+
+## Phase 4：分窗与引擎整合
 
 涉及的模块：
 
@@ -309,9 +342,25 @@ A. 那就是针对这个 interv 执行锚定所要走的策略了。一般是实
 
 要回答的问题：
 
-1. Windowing 把 Timeline 切成什么给 Engine？为什么要切？
-2. Engine behaviour 要求实现哪几个函数？输入输出各是什么形状？
-3. preutterance / spill 是什么概念？spill 会导致什么冲突？
+> Q1. Windowing 把 Timeline 切成什么给 Engine？为什么要切？
+
+A. 将整个 Timeline 以及音符序列切成片段，以便于外部应用实现基于乐句的缓存与增量生成等特性，同时出于简化 API 以及兼容，哪怕不需要外部缓存，也会将整轨压缩成一个完整片段。
+
+> Q2. Engine behaviour 要求实现哪几个函数？输入输出各是什么形状？
+
+A. 需要两个函数，`check/1` 以及 `render/1` ，输入完全一样，是包括诸多对象的字典，输出是外部产出，包括检查解决以及渲染结果。
+
+> Q3. preutterance / spill 是什么概念？spill 会导致什么冲突？
+
+A.
+
+preutterance 是由于音符开始于元音开始的阶段，因此实际的发声区间会略早的情况；spill 就是因为各种各样的原因，相比于 note duration span 标注 interv 参数可能会略微溢出的现象。
+
+spill 可能会导致 interv 和临近音符的边界并不会很清晰。
+
+---
+
+*以下部分尚未跟进*
 
 产出：画出 Phase 1 的 Timeline 被 Windowing 切成一个 Segment，标注 spill 的范围。然后用伪代码写一个 Engine.check(segments, interventions) 的调用——不要求代码正确，只要求你能写出每个参数"应该长什么样"。
 
