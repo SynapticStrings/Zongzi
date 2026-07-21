@@ -4,7 +4,7 @@ defmodule Zongzi.MixProject do
   def project do
     [
       app: :zongzi,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       aliases: [precommit: ["compile --warnings-as-errors", "format", "test"]],
@@ -31,8 +31,8 @@ defmodule Zongzi.MixProject do
 
   defp docs do
     [
-      main: "readme",
-      extras: ["README.md", "CHANGELOG.md"] ++ @extras_docs,
+      # main: "readme",
+      extras: ["README.md", "README.zh-CN.md", "CHANGELOG.md"] ++ @extras_docs,
       before_closing_head_tag: &before_closing_head_tag/1,
       groups_for_modules: [
         Timeline: [

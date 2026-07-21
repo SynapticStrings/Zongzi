@@ -1,13 +1,13 @@
-# 粽子 (Zongzi)
+# Zongzi
 
-Zongzi 是：
+Zongzi is:
 
-1. 提供构建 SVS 编辑器的函数式组件与规范
-2. 为 BEAM 生态的不同 SVS 处理组件提供统一适配
+1. Providing functional components and specifications for building SVS(Singing Voice Synthesis) editors
+2. Providing unified adaptation for different SVS processing components in the BEAM ecosystem
 
-换言之，就是 SVS 领域的 plug without server。
+i.e. it's [plug](https://hex.pm/packages/plug) without server in SVS.
 
-## 核心架构
+## Core Architecture
 
 ```mermaid
 sequenceDiagram
@@ -16,51 +16,41 @@ sequenceDiagram
     participant Zongzi
     participant Engine as Engine (implementation agnostic)
 
-    User->>Caller: Score / 编辑
-    Caller->>Zongzi: Timeline 写操作
-    Caller->>Engine: check / render（segments 常来自 WholeTrack）
+    User->>Caller: Score / Edit
+    Caller->>Zongzi: update Timeline(write op.)
+    Caller->>Engine: check / render(segments derived from WholeTrack usually)
     Engine-->>Caller: artifact₀
     Caller-->>User: artifact₀
 
-    loop 对抗轮
-        User->>Caller: 挂/撤 interventions 和/或 编辑 notes
-        Caller->>Zongzi: Timeline 更新
+    loop antagonistic loop between user editing and constraints
+        User->>Caller: mount/remove interventions and/or edit notes
+        Caller->>Zongzi: update Timeline
         Caller->>Zongzi: Anchor.rebase_all(ints, tl, ctx)
-        Zongzi-->>Caller: survived + 结构 conflicts
-        Caller-->>User: 结构 conflicts（若有）
+        Zongzi-->>Caller: survived + structural conflicts
+        Caller-->>User: maybe structural conflicts
 
         Note over Caller: Windowing.run_stages → [Segment]
         Caller->>Engine: check(%{segments: ...})
         Engine-->>Caller: check_artifact ± semantic conflicts
-        Caller->>Engine: render(%{segments: ...})（可选，重）
+        Caller->>Engine: render(%{segments: ...}) (heavy, optional)
         Engine-->>Caller: render_artifact
-        Caller-->>User: check/render 结果
+        Caller-->>User: check/render result
     end
 
-    opt 清理
-        User->>Caller: 确认无 conflict
+    opt cleanup
+        User->>Caller: ensure there's no conflict
         Caller->>Zongzi: Timeline.gc
     end
 ```
 
-## 文档
+## Documents
 
-- `docs/zh/spec/MENTAL_MODELS.md` — 分层与角色
-- `docs/zh/spec/decisions/` — 设计决策（无编号）
-- `docs/zh/spec/GOLDEN_SCENARIOS.md` — 场景约束（骨架；用例随实现补）
+TODO
 
-## 安装
+## Install
 
 ```elixir
 def deps do
   [{:zongzi, github: "SynapticStrings/Zongzi", branch: "main"}]
 end
 ```
-
-## ROADMAP
-
-- [ ] 打磨协议
-    - [ ] 重构 `Zongzi.Anchor.COntext` 以及上下文传递
-- [ ] 梳理文档以及用例
-- [ ] Translate document into English
-- [ ] Publish to hex.pm

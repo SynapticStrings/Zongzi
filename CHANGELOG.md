@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased — 2026/07/18
+## 0.2.0 — 2026/07/21
 
-Caller 集成反馈（zongzi_feasibility 落地）驱动的契约修订：
+Caller 集成反馈（zongzi_feasibility 落地）驱动的契约修订，以及 Strategy Options 解耦。
 
 ### 破坏性变更
 
@@ -13,33 +13,6 @@ Caller 集成反馈（zongzi_feasibility 落地）驱动的契约修订：
 - **`Timeline.gc/2` 返回 `{:ok, t()}`**（原为裸 struct），与库内其他写操作一致。
   同时修复 gc 误读 `int.declaration.referenced_seqs/1` 的 bug——正确来源是
   `int.strategy || NoteTriplet`（declaration 契约上根本没有该回调）。
-
-### 新增
-
-- `Anchor.rebase_all/4` 返回值新增 `:decisions` 键：
-  `%{intervention_id => :preserve | :rebase | :relocate | :split | :conflict}`，
-  结构决策可被 Caller 消费（指标/日志），无需事后对比 anchor 重推。
-- `Timeline.split_note/5`：新增可选 `attrs` 参数，透传 `Note.split/4`
-  （如给后半音符不同 lyric）。
-- `Score.TrackBuilder`：纯文档模块，固化 Caller 侧「持轨」组件清单、
-  notes_by_seq 逐写操作同步契约与编辑回路；`Timeline` moduledoc 已交叉引用。
-- `Anchor.Context` 新增 `:allow_relocate` 键（默认 `true`）：设为 `false` 时，
-  delete tombstone 上的 intervention 直接报 `{:conflict, :relocate_forbidden}`，
-  不尝试 relocate 到邻居。NoteTriplet 和 ScoredHost 均支持。
-
-### 文档
-
-- `RestSplit3Beats` 补充 caveat：intervention scope 是保守上界且会撑窗，
-  余量过宽会把本应切开的 gap 粘连成一窗。
-- 明确 `on_rebase` split 的子干预不再过 strategy.rebase，锚正确性由 declaration 负责。
-
-### Strategy Options 解耦 — 2026/07/21
-
-Strategy 专属旋钮从 `Anchor.Context` map 中拆出，挂到 `Intervention.strategy` 的
-`{module(), options}` 元组中，共享快照保留在 Context。
-
-#### 破坏性变更
-
 - **`Strategy.rebase/3` → `rebase/4`**：新增第 4 参 `opts :: term()`（策略专属 struct/map），
   由 `Intervention.strategy` 元组拆出传入。自定义策略需适配。
 - **`Intervention.strategy` 类型变更**：`module() | nil` → `{module(), options :: term()} | nil`。
@@ -51,8 +24,15 @@ Strategy 专属旋钮从 `Anchor.Context` map 中拆出，挂到 `Intervention.s
   取值 `:prev | :next | :never`（默认 `:next`）。`:never` 时 delete tombstone 直接报
   `{:conflict, :adjacency_lost}`，不尝试 relocate。`ScoredHost.Options` 同。
 
-#### 新增
+### 新增
 
+- `Anchor.rebase_all/4` 返回值新增 `:decisions` 键：
+  `%{intervention_id => :preserve | :rebase | :relocate | :split | :conflict}`，
+  结构决策可被 Caller 消费（指标/日志），无需事后对比 anchor 重推。
+- `Timeline.split_note/5`：新增可选 `attrs` 参数，透传 `Note.split/4`
+  （如给后半音符不同 lyric）。
+- `Score.TrackBuilder`：纯文档模块，固化 Caller 侧「持轨」组件清单、
+  notes_by_seq 逐写操作同步契约与编辑回路；`Timeline` moduledoc 已交叉引用。
 - `Zongzi.Anchor.NoteTriplet.Options`：defstruct `match_threshold`（默认 2）、
   `allow_follow_merge`（默认 false）、`orphan_direction`（默认 `:next`）。
 - `Zongzi.Anchor.ScoredHost.Options`：同 NoteTriplet 字段 + `scan_limit`（默认 4）。
@@ -61,10 +41,16 @@ Strategy 专属旋钮从 `Anchor.Context` map 中拆出，挂到 `Intervention.s
 - `do_relocate` bugfix：修复 working tree 中 `opts.allow_follow_merge` 误传给
   `orphan_direction` 的问题（布尔值进 case 匹配 `:prev|:next` 会 FunctionClauseError）。
 
-#### 重构
+### 重构
 
 - `Timeline.gc/2`：dispatch 层适配 `{module, opts}` 元组，拆出 module 再调 `referenced_seqs`。
 - `Anchor.rebase_all/4`：dispatch 拆 `{strategy_mod, strategy_opts}` 元组并透传 opts。
+
+### 文档
+
+- `RestSplit3Beats` 补充 caveat：intervention scope 是保守上界且会撑窗，
+  余量过宽会把本应切开的 gap 粘连成一窗。
+- 明确 `on_rebase` split 的子干预不再过 strategy.rebase，锚正确性由 declaration 负责。
 
 ## 0.1.0 — 2026/07/14
 
