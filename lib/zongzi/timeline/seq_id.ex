@@ -1,6 +1,6 @@
 defmodule Zongzi.Timeline.SeqID do
   @moduledoc """
-  全局唯一的序列位置 ID。
+  A module used only for recording IDs of the relationships between note sequences.
 
   设计借鉴 Sequence CRDT 的 position identifier（RGA 系）：
 
@@ -20,13 +20,13 @@ defmodule Zongzi.Timeline.SeqID do
   - Note 删除后的墓碑标记
   """
 
-  @typedoc "SeqID 是一个单调递增的正整数"
+  @typedoc "SeqID is a monotonically increasing positive integer."
   @type t :: pos_integer()
 
   @doc """
-  比较两个 SeqID 的先后顺序。
+  Compare the order of two SeqIDs.
 
-  返回 `:lt` | `:eq` | `:gt`。
+  Return `:lt` | `:eq` | `:gt` .
   """
   @spec compare(t(), t()) :: :lt | :eq | :gt
   def compare(a, b) when a < b, do: :lt

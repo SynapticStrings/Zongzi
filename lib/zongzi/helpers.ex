@@ -1,5 +1,5 @@
 defmodule Zongzi.Helpers do
-  @moduledoc "一些帮助函数。"
+  @moduledoc "Some helpers."
 
   @doc """
   规整属性，仅保留 `fields` 中声明的键。

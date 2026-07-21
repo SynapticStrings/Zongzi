@@ -1,8 +1,9 @@
 defmodule Zongzi do
   @moduledoc """
-  轻量级 SVS 领域的函数式组件与适配契约，旨在尽可能保留用户的调教参数而被设计。
+  Lightweight functional components and adaptation contracts in the SVS domain are designed to
+  preserve as many user-defined parameters as possible.
 
-  ## 组件适配范围
+  ## Components
 
   - 谱表数据（`Zongzi.Score`）
       * 包括音高系统、时间系统（谱表、刻及物理时间）以及音符结构体

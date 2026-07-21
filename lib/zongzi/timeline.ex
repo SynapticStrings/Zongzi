@@ -1,13 +1,13 @@
 defmodule Zongzi.Timeline do
   @moduledoc """
-  轨道序列真实源。双向链表实现。
+  The source of truth of the note sequences, only records the relationships between them.
 
-  仅记录音符序列之间的相互关系
+  Implemented using a doubly linked list.
 
   独立于 Note 的生命周期——Note 被 split/merge/drag 后，
   Timeline 维护的 seq_id 序列始终反映最新的全序关系。
 
-  ## 数据字段
+  ## Data Fields
 
   - `head` / `tail` — 链表首尾指针（nil 表示空链表）
   - `nodes` — `%{SeqID.t() => {prev :: SeqID.t() | nil, next :: SeqID.t() | nil}}`，双向链表
@@ -23,6 +23,12 @@ defmodule Zongzi.Timeline do
   - 删除音符
 
   以上操作均指单个音符。
+
+  针对批量操作：
+
+  - 批量在末尾添加
+  - 批量在某音符前/后插入一堆音符
+  - 批量删除一堆音符
 
   ## 查询原语
 
@@ -169,6 +175,7 @@ defmodule Zongzi.Timeline do
   def generate(%__MODULE__{next_seq: next} = timeline),
     do: {next, %__MODULE__{timeline | next_seq: next + 1}}
 
+  @doc "Validate Timeline."
   defdelegate validate(timeline), to: Zongzi.Timeline.Validator
 
   # ---- 写操作（单个音符的 CRUD） ----

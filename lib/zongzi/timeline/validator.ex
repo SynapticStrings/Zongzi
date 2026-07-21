@@ -1,22 +1,15 @@
 defmodule Zongzi.Timeline.Validator do
-  @moduledoc """
-  Timeline 内部不变量验证。
-  """
+  @moduledoc false
+  # Timeline 内部不变量验证。
 
   alias Zongzi.Timeline
 
-  @doc """
-  验证 Timeline 内部不变量。
-
-  仅检查 Timeline 自身承诺维护的结构一致性，不越界检查 Note 实体数据。
-
-  ## 检查项
-
-  - `head` / `tail` 存在性与指针一致性
-  - 双向链表指针对称
-  - `seq_map` 与 `tombstones` 状态一致
-  - `next_seq` 大于所有已分配 seq_id
-  """
+  # 检查项：
+  #
+  # - `head` / `tail` 存在性与指针一致性
+  # - 双向链表指针对称
+  # - `seq_map` 与 `tombstones` 状态一致
+  # - `next_seq` 大于所有已分配 seq_id
   @spec validate(Timeline.t()) :: :ok | {:error, term()}
   def validate(%Timeline{} = timeline) do
     with :ok <- validate_head_tail(timeline),
