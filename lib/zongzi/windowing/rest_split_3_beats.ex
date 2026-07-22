@@ -126,7 +126,7 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
       {s, e} when is_integer(s) and is_integer(e) and e > s ->
         {:ok, %{start: s, end: e, seq_ids: []}}
 
-      {:seconds, s, e} when is_float(s) and is_float(e) and e > s ->
+      {:seconds, s, e} when is_number(s) and is_number(e) and e > s ->
         with {:ok, {tick_s, tick_e}} <- Context.normalize_scope({:seconds, s, e}, scope_ctx) do
           {:ok, %{start: tick_s, end: tick_e, seq_ids: []}}
         end

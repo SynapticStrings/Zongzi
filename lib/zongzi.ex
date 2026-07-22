@@ -30,7 +30,7 @@ defmodule Zongzi do
 
   Zongzi 只负责纯数据与校验，不替 Caller 选型其状态形态（GenServer / LiveView assigns
   / 纯数据管道），因此即 Caller 管理的一组随编辑共同演进的状态——无法也不应由库实现。
-  一下把 Caller 必须自己维护的事项写成契约；若未来 Caller 形态收敛，可在长出共享 helper。
+  以下把 Caller 必须自己维护的事项写成契约；若未来 Caller 形态收敛，可再长出共享 helper。
 
   ## Caller 需要自持的组件
 
@@ -74,8 +74,8 @@ defmodule Zongzi do
 
       {:ok, tl, note} = Timeline.insert_note(tl, note)
       notes = Map.put(notes, note.seq_id, note)
-      {:ok, ints} = Anchor.rebase_all(ints, tl, ctx)   # 返回值含 :decisions 键
-      {:ok, wctx} = Windowing.Context.new(...)
+      %{ survived: ..., conflicts: ..., decisions: ...} = Anchor.rebase_all(ints, tl, ctx)
+      wctx = Windowing.Context.new(...)
       {:ok, results} = Windowing.run_stages(wctx, stages)
       # → Engine.check / Engine.render ...
 

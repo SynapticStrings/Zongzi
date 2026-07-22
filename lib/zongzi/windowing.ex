@@ -13,7 +13,8 @@ defmodule Zongzi.Windowing do
   @doc """
   对同一 Context 跑一或多个 windowing 策略。
 
-  执行多个策略一般用于针对 interv 的精确控制，前一个的 ctx 传入后一个。
+  目前 zongzi 内核只提供单策略的版本。
+  执行多个策略一般用于针对 interv 的精确控制，前一个的 ctx 传入后一个，需要自己实现。
 
   Fail-fast when not succeed.
 

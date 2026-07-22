@@ -37,7 +37,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       channel: :pitch,
       anchor: triplet,
       payload: %{delta: 100},
-      snapshot: %{},
+      snapshot: %{}
     }
   end
 

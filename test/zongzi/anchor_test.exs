@@ -37,7 +37,7 @@ defmodule Zongzi.AnchorTest do
       channel: :pitch,
       anchor: anchor,
       payload: %{delta: 100},
-      snapshot: %{},
+      snapshot: %{}
     }
   end
 

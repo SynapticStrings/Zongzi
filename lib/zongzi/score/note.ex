@@ -34,7 +34,7 @@ defmodule Zongzi.Score.Note do
           lyric: String.t() | nil,
           seq_id: SeqID.t() | nil,
           annotation: String.t() | nil,
-          metadata: %{}
+          metadata: metadata()
         }
 
   # ---- Constructor ----

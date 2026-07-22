@@ -1,5 +1,4 @@
 defmodule Zongzi.Windowing.RestSplit3BeatsTest do
-
   defmodule MockScopeDecl do
     @behaviour Zongzi.Intervention.Declaration
     @impl true

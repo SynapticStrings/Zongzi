@@ -69,7 +69,7 @@ defmodule Zongzi.Windowing.WholeTrack do
       {s, e} when is_numeric_tick(s) and is_numeric_tick(e) and e > s ->
         {:ok, {s, e, []}}
 
-      {:seconds, s, e} when is_float(s) and is_float(e) and e > s ->
+      {:seconds, s, e} when is_number(s) and is_number(e) and e > s ->
         with {:ok, {tick_s, tick_e}} <- Context.normalize_scope({:seconds, s, e}, scope_ctx) do
           {:ok, {tick_s, tick_e, []}}
         end

@@ -77,7 +77,7 @@ defmodule Zongzi.Intervention.Declaration do
   """
   @callback scope(intervention :: Intervention.t(), scope_ctx :: scope_ctx()) ::
               {Zongzi.Score.Tick.t(), Zongzi.Score.Tick.t()}
-              | {:seconds, float, float}
+              | {:seconds, float(), float()}
 
   @doc """
   从投影切片中提取此 intervention 依赖的原始值。
@@ -131,4 +131,21 @@ defmodule Zongzi.Intervention.Declaration do
 
   def supports_on_rebase?(mod) when is_atom(mod), do: function_exported?(mod, :on_rebase, 4)
   def supports_on_rebase?(_), do: false
+
+  def resolve_all([], _projection) do
+    %{ok: [], conflicts: []}
+  end
+
+  def resolve_all([%Intervention{} | _] = interventions, projection) do
+    interventions
+    |> Enum.reduce({[], []}, fn int, {ok_acc, c_acc} ->
+      decl = int.declaration
+
+      case decl.resolve(int, projection) do
+        {:ok, applied} -> {[{int, applied} | ok_acc], c_acc}
+        {:conflict, reason} -> {ok_acc, [{int, reason} | c_acc]}
+      end
+    end)
+    |> then(fn {oks, cs} -> %{ok: Enum.reverse(oks), conflicts: Enum.reverse(cs)} end)
+  end
 end

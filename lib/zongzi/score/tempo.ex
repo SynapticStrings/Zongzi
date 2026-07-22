@@ -52,7 +52,7 @@ defmodule Zongzi.Score.Tempo do
 
   defmodule Step do
     @moduledoc "最简单的速度段定义——阶梯。"
-    alias Zongzi.Score.Tempo.{Segment, Event}
+    alias Zongzi.Score.Tempo.Segment
     use Segment
     defstruct [:start_tick, :end_tick, :bpm]
 
@@ -86,7 +86,7 @@ defmodule Zongzi.Score.Tempo do
 
   defmodule Linear do
     @moduledoc "线性渐变速度段。"
-    alias Zongzi.Score.Tempo.{Segment, Event}
+    alias Zongzi.Score.Tempo.Segment
     alias Zongzi.Score.Tick
     import Tick
     use Segment

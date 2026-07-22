@@ -67,12 +67,22 @@ defmodule Zongzi.Intervention do
 
   # 创建（绑定 declaration 以及 strategy）
   # 如果没有 declaration 会报错
+  # create/1 new/1 留一个
   def create(attrs) do
     new(attrs)
   end
 
   # 注入 payload 以及相关的
-  def mount(%__MODULE__{declaration: declaration} = interv, payload, anchor, _timeline, projection) do
+  # timeline 给未来 anchor 合法性校验预留的 slot
+  # e.g. G2P 下游的音素挂载单或多个音符上
+  # 待讨论
+  def mount(
+        %__MODULE__{declaration: declaration} = interv,
+        payload,
+        anchor,
+        _timeline,
+        projection
+      ) do
     with {:ok, interv} <- update(interv, payload: payload, anchor: anchor),
          {:ok, interv} <- update(interv, snapshot: declaration.snapshot(projection, interv)) do
       {:ok, interv}
