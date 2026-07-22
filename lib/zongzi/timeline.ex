@@ -181,18 +181,19 @@ defmodule Zongzi.Timeline do
   # ---- 写操作（单个音符的 CRUD） ----
 
   @doc "将音符追加到 Timeline 末尾。"
-  @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()}
+  @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()} | {:error, term()}
   def insert_note(%__MODULE__{} = timeline, %Note{} = note) do
-    {timeline, note, seq_id} = update_timeline(timeline, note)
-    timeline = link_tail(timeline, seq_id)
-    {:ok, timeline, note}
+    with {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
+      timeline = link_tail(timeline, seq_id)
+      {:ok, timeline, note}
+    end
   end
 
   @doc "在 target_seq 之前插入音符。"
   @spec insert_note_before(t(), Note.t(), SeqID.t()) :: {:ok, t(), Note.t()} | {:error, term()}
   def insert_note_before(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
-    with :ok <- assert_has_node(timeline, target_seq) do
-      {timeline, note, seq_id} = update_timeline(timeline, note)
+    with :ok <- assert_has_node(timeline, target_seq),
+         {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
       timeline = link_before(timeline, seq_id, target_seq)
       {:ok, timeline, note}
     end
@@ -201,26 +202,35 @@ defmodule Zongzi.Timeline do
   @doc "在 target_seq 之后插入音符。"
   @spec insert_note_after(t(), Note.t(), SeqID.t()) :: {:ok, t(), Note.t()} | {:error, term()}
   def insert_note_after(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
-    with :ok <- assert_has_node(timeline, target_seq) do
-      {timeline, note, seq_id} = update_timeline(timeline, note)
+    with :ok <- assert_has_node(timeline, target_seq),
+         {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
       timeline = link_after(timeline, seq_id, target_seq)
       {:ok, timeline, note}
     end
   end
 
   # 不放后面了，就前面几个函数会被用到
+  # 确保永远单调递增
   defp update_timeline(%__MODULE__{} = timeline, %Note{} = note) do
-    {seq_id, timeline} =
-      if note.seq_id do
-        # 为了规避哪个人想要将 seqID 小于目前 timeline 最大值的音符塞进来
-        next_seq = max(timeline.next_seq, note.seq_id + 1)
-        {next_seq - 1, %__MODULE__{timeline | next_seq: next_seq}}
-      else
-        {timeline.next_seq, %__MODULE__{timeline | next_seq: timeline.next_seq + 1}}
-      end
+    cond do
+      is_nil(note.seq_id) ->
+        put_new(timeline, timeline.next_seq, note)
 
-    note = %{note | seq_id: seq_id}
-    {%__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}, note, seq_id}
+      note.seq_id >= timeline.next_seq ->
+        put_new(timeline, note.seq_id, note)
+
+      true ->
+        {:error, {:seq_id_reused, note.seq_id, timeline.next_seq}}
+    end
+  end
+
+  defp put_new(%__MODULE__{} = timeline, seq_id, note) do
+    {:ok,
+     %{
+       timeline
+       | next_seq: seq_id + 1,
+         seq_map: Map.put(timeline.seq_map, seq_id, note.id)
+     }, %{note | seq_id: seq_id}, seq_id}
   end
 
   @doc """

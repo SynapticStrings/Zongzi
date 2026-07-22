@@ -69,11 +69,10 @@ defmodule Zongzi.Intervention do
 
   # 注入 payload 以及相关的
   def mount(%__MODULE__{declaration: declaration} = interv, payload, anchor, timeline, projection) do
-    with {:ok, interv} <- update(interv, payload: payload, anchor: anchor) do
-      interv
-      |> then(&update(&1, scope: declaration.scope(&1, timeline)))
-      |> elem(1)
-      |> then(&update(&1, snapshot: declaration.snapshot(projection, &1)))
+    with {:ok, interv} <- update(interv, payload: payload, anchor: anchor),
+         {:ok, interv} <- update(interv, scope: declaration.scope(interv, timeline)),
+         {:ok, interv} <- update(interv, snapshot: declaration.snapshot(projection, interv)) do
+      {:ok, interv}
     end
   end
 

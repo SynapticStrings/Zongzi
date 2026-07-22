@@ -20,7 +20,6 @@ defmodule Zongzi.Anchor.TripletMatch do
           {:active, pos_integer(), triplet()}
           | {:tombstone, :merge | :delete}
           | {:tombstone, :delete, SeqID.t() | nil, SeqID.t() | nil}
-          | {:conflict, term()}
   def match(%Intervention{anchor: {old_prev, current, old_next}}, %Timeline{} = timeline) do
     case Query.status(timeline, current) do
       :missing ->

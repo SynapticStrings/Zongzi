@@ -70,10 +70,9 @@ end
     - [ ] 验证
 - [ ] Scope 的单位（Tick frame seconds）
     - 变速怎么办？预期当然是要失效的（原始数据变了），所以 interv 的锚定不能够一定按照 Tick 来 => 写进新的 Golden Scenarios 里？
+    - [ ] interv.scope 变成 Declare.scope(inter, ctx) 的结果以适配，不保留字段，双源真相有冲突
 - [ ] Timeline 对象的边界条件
     - 合并后消失的音符被删除（批量删除或什么的）挂载在其上的 interv 怎么处理
-- [ ] Bug Fix
-    - [x] Timelinge.gc
 - [ ] 内核的序列化（Note Key Timeline Intervention）
 - 工程卫生类
     - 错误信息的分类 -> 每个模块自己负责吧，还用不上 Exception

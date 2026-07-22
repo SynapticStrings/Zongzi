@@ -11,7 +11,7 @@ defmodule Zongzi.Timeline.Query do
   写操作保证：
 
   - insert 同时写 nodes 链表和 seq_map
-  - gc 同时从 nodes 链表和 tombstones 移除
+  - gc 同时从 nodes 、 seq_map 和 tombstones 移除
 
   因此不存在「链表里有但 tombstones 和 seq_map 都没有」的状态。
   """

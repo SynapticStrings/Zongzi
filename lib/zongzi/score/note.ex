@@ -214,7 +214,8 @@ defmodule Zongzi.Score.Note do
         extra_attrs =
           attrs
           |> Enum.into(%{})
-          |> Map.take(@keys)
+          # 确保 ID 以及 tick 得到保留
+          |> Map.take([:key, :lyric, :annotation, :metadata])
 
         after_attrs =
           Map.merge(
