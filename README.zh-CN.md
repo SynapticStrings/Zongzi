@@ -63,14 +63,6 @@ end
 
 ## 编码
 
-- [ ] Resolve 操作也来一个 resolve_all
-    - 可以照着 zongzi_feasibility 实现
-- [ ] Intervention 缺完整的生命周期
-    - [x] 简单实现
-    - [ ] 验证
-- [ ] Scope 的单位（Tick frame seconds）
-    - 变速怎么办？预期当然是要失效的（原始数据变了），所以 interv 的锚定不能够一定按照 Tick 来 => 写进新的 Golden Scenarios 里？
-    - [ ] interv.scope 变成 Declare.scope(inter, ctx) 的结果以适配，不保留字段，双源真相有冲突
 - [ ] Timeline 对象的边界条件
     - 合并后消失的音符被删除（批量删除或什么的）挂载在其上的 interv 怎么处理
 - [ ] 内核的序列化（Note Key Timeline Intervention）

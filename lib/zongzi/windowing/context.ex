@@ -50,6 +50,7 @@ defmodule Zongzi.Windowing.Context do
   def new(attrs \\ %{}) do
     attrs = Map.new(attrs)
 
+    # 等用 Zongzi.Util.Model 重构以规避 Map.fetch!/2
     %__MODULE__{
       timeline: Map.fetch!(attrs, :timeline),
       notes_by_seq: Map.get(attrs, :notes_by_seq, %{}),

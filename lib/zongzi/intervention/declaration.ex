@@ -132,15 +132,16 @@ defmodule Zongzi.Intervention.Declaration do
   def supports_on_rebase?(mod) when is_atom(mod), do: function_exported?(mod, :on_rebase, 4)
   def supports_on_rebase?(_), do: false
 
-  @spec resolve_all([Intervention.t()], term()) :: %{
+  @doc "执行相同投影下的批次渲染。"
+  @spec resolve_within([Intervention.t()], term()) :: %{
           ok: [{Intervention.t(), term()}],
           conflicts: [{Intervention.t(), term()}]
         }
-  def resolve_all([], _projection) do
+  def resolve_within([], _projection) do
     %{ok: [], conflicts: []}
   end
 
-  def resolve_all([%Intervention{} | _] = interventions, projection) do
+  def resolve_within([%Intervention{} | _] = interventions, projection) do
     interventions
     |> Enum.reduce({[], []}, fn int, {ok_acc, c_acc} ->
       decl = int.declaration

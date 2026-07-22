@@ -83,7 +83,7 @@ defmodule Zongzi.Intervention do
       {:ok, interv}
     else
       {:error, _} = err -> err
-      unactive_seq_ids -> {:error, {:cought_unactive_seq_ids, unactive_seq_ids}}
+      unactive_seq_ids -> {:error, {:caught_inactive_seq_ids, unactive_seq_ids}}
     end
   end
 

@@ -18,7 +18,7 @@ defmodule Zongzi do
   - **Engine Behavior (`Zongzi.Engine`)**
     * Accepts single or multiple... `Zongzi.Windowing.Segment` performs an inspection or rendering operation.
 
-  ## 在您的系统中的角色
+  ## Zongzi's Role in Your System
 
   - **Caller** 是任意编排者：持 Note 表、组 Context、串联 rebase → window → check/render、上浮 conflict
   - 编辑器操作面（曲线手绘等）不进系统

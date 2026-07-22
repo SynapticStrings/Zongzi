@@ -34,17 +34,10 @@ defmodule Zongzi.Timeline do
 
   参见 `Zongzi.Timeline.Query` 模块。
 
-  ## 与 Caller 的配套约定
+  ## Caller Related
 
-  Timeline 不持有 Note 实体，写操作后 Caller 侧 note 快照（notes_by_seq）
-  的同步需要单独实现。
-
-  ## 复杂度
-
-  - seq_id 相对操作（append/split/move）：O(1)
-  - index 相对操作（insert_at/drag）：O(n) walk from head
-  - 查询（neighborhood/scan）：O(k) 只访问需要的邻居数
-  - gc：O(n) 遍历整条链
+  Timeline not contain Note.
+  写操作后 Caller 侧 note 快照（notes_by_seq）的同步需要单独实现。
   """
 
   alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
@@ -159,6 +152,10 @@ defmodule Zongzi.Timeline do
   @doc "给定 seq_id 是否在链表中。"
   @spec has_node?(t(), SeqID.t()) :: boolean()
   def has_node?(%__MODULE__{nodes: nodes}, seq_id), do: Map.has_key?(nodes, seq_id)
+
+  @doc "获得给定 SeqID 的 NoteID 。"
+  @spec note_id_for(t(), SeqID.t()) :: {:ok, ID.t(Note.t())} | :error
+  def note_id_for(%__MODULE__{seq_map: seq_map}, seq_id), do: Map.get(seq_map, seq_id)
 
   @doc """
   基于 Timeline 自持的计数器生成新 SeqID。
@@ -463,15 +460,18 @@ defmodule Zongzi.Timeline do
 
   引用判定走各 intervention 的 `Anchor.Strategy.referenced_seqs/1`
   （strategy 为 nil 时回退 `NoteTriplet`）。
+
+  extra_refs 是为了使 undo 可用。
   """
   @spec gc(t(), [Zongzi.Intervention.t()]) :: {:ok, t()}
-  def gc(%__MODULE__{} = timeline, interventions) do
+  def gc(%__MODULE__{} = timeline, interventions, extra_refs \\ []) do
     live_refs =
       interventions
       |> Enum.flat_map(fn int ->
         {strategy_mod, _opts} = int.strategy || {Zongzi.Anchor.NoteTriplet, %{}}
         strategy_mod.referenced_seqs(int)
       end)
+      |> then(&(&1 ++ extra_refs))
       |> MapSet.new()
 
     unreachable = MapSet.difference(timeline.tombstones, live_refs)
