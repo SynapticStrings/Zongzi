@@ -38,7 +38,6 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       anchor: triplet,
       payload: %{delta: 100},
       snapshot: %{},
-      scope: nil
     }
   end
 

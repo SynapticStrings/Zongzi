@@ -14,7 +14,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     @behaviour Zongzi.Intervention.Declaration
 
     @impl true
-    def scope(int, tl) do
+    def scope(int, %{timeline: tl}) do
       {_prev, current, _next} = int.anchor
 
       case Zongzi.Timeline.Query.status(tl, current) do

@@ -58,4 +58,45 @@ defmodule Zongzi.Windowing.Context do
       opts: Map.get(attrs, :opts, %{})
     }
   end
+
+  @doc """
+  从 Context 组装 `Declaration.scope/2` 需要的 `scope_ctx` plain map。
+
+  ## 字段
+
+  - `:timeline` — `ctx.timeline`
+  - `:tempo_map` — `ctx.tempo_map`
+  - `:tpqn` — `ctx.opts[:tpqn]` 或默认 480
+  """
+  @spec scope_ctx(t()) :: Zongzi.Intervention.Declaration.scope_ctx()
+  def scope_ctx(%__MODULE__{timeline: tl, tempo_map: tm, opts: opts}) do
+    %{
+      timeline: tl,
+      tempo_map: tm,
+      tpqn: Map.get(opts, :tpqn, 480)
+    }
+  end
+
+  @doc """
+  将 `Declaration.scope/2` 的 tagged return 归一化为 tick 区间。
+
+  - `{tick, tick}` → 原样返回 `{:ok, {tick, tick}}`
+  - `{:seconds, s, e}` → 用 `scope_ctx.tempo_map` 转 tick
+  - `{:seconds, _, _}` 但 `tempo_map` 为 nil → `{:error, :tempo_map_required}`
+  """
+  @spec normalize_scope(
+          {Zongzi.Score.Tick.t(), Zongzi.Score.Tick.t()} | {:seconds, float, float},
+          Zongzi.Intervention.Declaration.scope_ctx()
+        ) :: {:ok, {Zongzi.Score.Tick.t(), Zongzi.Score.Tick.t()}} | {:error, term()}
+  def normalize_scope({s, e}, _scope_ctx) when is_integer(s) and is_integer(e) do
+    {:ok, {s, e}}
+  end
+
+  def normalize_scope({:seconds, _s, _e}, %{tempo_map: nil}) do
+    {:error, :tempo_map_required}
+  end
+
+  def normalize_scope({:seconds, s, e}, %{tempo_map: tm, tpqn: tpqn}) do
+    {:ok, {TempoMap.sec_to_tick(tm, s, tpqn), TempoMap.sec_to_tick(tm, e, tpqn)}}
+  end
 end

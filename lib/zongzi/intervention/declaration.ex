@@ -19,8 +19,11 @@ defmodule Zongzi.Intervention.Declaration do
 
   ## 三个回调的调用时机
 
-  - `scope/2` — 切窗前（静态，保守上界）。不能依赖投影结果，否则切窗和渲染
-    互相依赖产生死循环。像 preutterance 这种"实际溢出量要渲染后才知道"的，
+  - `scope/2` — 切窗前（静态，保守上界）。不依赖投影结果。
+    第二参数为 `scope_ctx`（`%{timeline, tempo_map, tpqn}` 的 plain map），
+    供秒级 channel 做 tick↔秒换算。返回 tagged tuple：
+    `{tick, tick}` 或 `{:seconds, float, float}`。
+    像 preutterance 这种"实际溢出量要渲染后才知道"的，
     只能声明引擎的 max preutterance 作为保守上界。
   - `snapshot/2` — 挂载时。从投影结果中提取这个 intervention 依赖的原始值，
     存入 `Intervention.snapshot`。
@@ -38,22 +41,43 @@ defmodule Zongzi.Intervention.Declaration do
   ## 时间单位
 
   intervention 的参数天然可能是秒（phoneme boundary 采样自音频）。
-  scope 声明也可用秒，切窗/换算时由 **Caller 或引擎** 转 tick。
-  zongzi 核不强制 scope 单位；tick↔秒 转换留在库外（可用本库 TempoMap 工具）。
+  scope 声明支持 tagged return：`{tick, tick}`（tick 基准，如 pitch）
+  或 `{:seconds, float, float}`（秒基准，如 phoneme_timing）。
+  Windowing 侧负责归一化：tick 直接用，`:seconds` 用 `scope_ctx.tempo_map`
+  转 tick；缺 `tempo_map` 时返回 `{:error, :tempo_map_required}`。
   """
 
   alias Zongzi.{Intervention, Timeline}
 
+  @typedoc """
+  scope/2 的第二参数（plain map）。
+
+  ## 字段
+
+  - `:timeline` — `Timeline.t()`，必填
+  - `:tempo_map` — `TempoMap.t() | nil`，秒级 channel 换算需要
+  - `:tpqn` — `pos_integer()`，tick-per-quarter-note，默认 480
+  """
+  @type scope_ctx :: %{
+          timeline: Timeline.t(),
+          tempo_map: Zongzi.Score.TempoMap.t() | nil,
+          tpqn: pos_integer()
+        }
+
   @doc """
   声明 intervention 在 Timeline 上的作用范围（保守上界）。
 
-  返回 `{start_tick, end_tick}`——窗口切分的最小单位。
-  各 channel 的 scope 取并集得到最终渲染窗口。
+  返回 tagged tuple：
+  - `{start_tick, end_tick}` — tick 基准（如 pitch 曲线）
+  - `{:seconds, start_sec, end_sec}` — 秒基准（如 phoneme boundary）
+
+  各 channel 的 scope 取并集（归一化到 tick 后）得到最终渲染窗口。
 
   必须是静态可算的纯函数，不能依赖投影结果。
   """
-  @callback scope(intervention :: Intervention.t(), timeline :: Timeline.t()) ::
+  @callback scope(intervention :: Intervention.t(), scope_ctx :: scope_ctx()) ::
               {Zongzi.Score.Tick.t(), Zongzi.Score.Tick.t()}
+              | {:seconds, float, float}
 
   @doc """
   从投影切片中提取此 intervention 依赖的原始值。

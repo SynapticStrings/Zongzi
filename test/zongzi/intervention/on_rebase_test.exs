@@ -8,7 +8,7 @@ defmodule Zongzi.Intervention.OnRebaseTest do
     @behaviour Zongzi.Intervention.Declaration
 
     @impl true
-    def scope(_int, _tl), do: {0, 1000}
+    def scope(_int, _scope_ctx), do: {0, 1000}
 
     @impl true
     def snapshot(_proj, _int), do: %{}
@@ -55,7 +55,6 @@ defmodule Zongzi.Intervention.OnRebaseTest do
       anchor: {n1.seq_id, n2.seq_id, n3.seq_id},
       payload: %{curve: :full},
       snapshot: %{},
-      scope: nil,
       strategy: nil,
       declaration: MockPitchDeclaration
     }
@@ -79,7 +78,6 @@ defmodule Zongzi.Intervention.OnRebaseTest do
       anchor: {n1.seq_id, n2.seq_id, n3.seq_id},
       payload: %{},
       snapshot: %{},
-      scope: nil,
       strategy: nil,
       declaration: MockPitchDeclaration
     }
@@ -100,7 +98,6 @@ defmodule Zongzi.Intervention.OnRebaseTest do
       anchor: {n1.seq_id, n2.seq_id, n3.seq_id},
       payload: %{},
       snapshot: %{},
-      scope: nil,
       strategy: nil,
       declaration: MockPitchDeclaration
     }
@@ -121,7 +118,6 @@ defmodule Zongzi.Intervention.OnRebaseTest do
       anchor: {n1.seq_id, n2.seq_id, n3.seq_id},
       payload: %{},
       snapshot: %{},
-      scope: nil,
       strategy: nil,
       declaration: MockPitchDeclaration
     }
@@ -148,7 +144,6 @@ defmodule Zongzi.Intervention.OnRebaseTest do
       anchor: {n1.seq_id, n2.seq_id, n3.seq_id},
       payload: %{},
       snapshot: %{},
-      scope: nil,
       strategy: nil,
       declaration: nil
     }

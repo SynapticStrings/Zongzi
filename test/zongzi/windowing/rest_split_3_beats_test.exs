@@ -1,4 +1,15 @@
 defmodule Zongzi.Windowing.RestSplit3BeatsTest do
+
+  defmodule MockScopeDecl do
+    @behaviour Zongzi.Intervention.Declaration
+    @impl true
+    def scope(_int, _scope_ctx), do: {0, 5480}
+    @impl true
+    def snapshot(_proj, _int), do: %{}
+    @impl true
+    def resolve(_int, _proj), do: {:ok, %{}}
+  end
+
   use ExUnit.Case, async: true
 
   alias Zongzi.{Timeline, Intervention}
@@ -108,7 +119,7 @@ defmodule Zongzi.Windowing.RestSplit3BeatsTest do
         anchor: {nil, a.seq_id, nil},
         payload: %{},
         snapshot: %{},
-        scope: {0, 5480}
+        declaration: MockScopeDecl
       }
 
       ctx = %{ctx | interventions: [iv]}

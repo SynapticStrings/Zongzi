@@ -35,6 +35,12 @@ defmodule Zongzi.Intervention do
 
   snapshot 优于输入指纹：改了歌词但 G2P 输出恰好相同不应判死；
   判死依据是「base 本身还在不在」，而非「产生 base 的输入变没变」。
+
+  ## scope 不缓存
+
+  scope 由 `Declaration.scope/2` 现场计算（纯函数），不存字段。
+  变速、drag note 后 scope 会变——缓存即 stale，双源真相迟早咬人。
+  Windowing 侧在切窗时用 `scope_ctx` 现场调用 `declaration.scope(int, scope_ctx)`。
   """
 
   @type t :: %__MODULE__{
@@ -43,7 +49,6 @@ defmodule Zongzi.Intervention do
           anchor: term(),
           payload: term(),
           snapshot: term(),
-          scope: term(),
           strategy: {module(), options :: term()} | nil,
           declaration: module()
         }
@@ -55,7 +60,6 @@ defmodule Zongzi.Intervention do
       :anchor,
       :payload,
       :snapshot,
-      :scope,
       strategy: nil,
       declaration: nil
     ],
@@ -68,9 +72,8 @@ defmodule Zongzi.Intervention do
   end
 
   # 注入 payload 以及相关的
-  def mount(%__MODULE__{declaration: declaration} = interv, payload, anchor, timeline, projection) do
+  def mount(%__MODULE__{declaration: declaration} = interv, payload, anchor, _timeline, projection) do
     with {:ok, interv} <- update(interv, payload: payload, anchor: anchor),
-         {:ok, interv} <- update(interv, scope: declaration.scope(interv, timeline)),
          {:ok, interv} <- update(interv, snapshot: declaration.snapshot(projection, interv)) do
       {:ok, interv}
     end

@@ -5,9 +5,9 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
   ## 规则
 
   1. 按 Timeline **active 序**取 note cores。
-  2. Intervention：对 `channel` pattern match；当前实现凡 `scope: {start, end}`
-     合法的均并入 content（`:pitch` / `:phoneme_timing` / 其它带 scope 的）。
-     无 `scope` 的 iv 不撑窗。
+  2. Intervention：对 `channel` pattern match；当前实现凡有合法 scope 的
+     均并入 content（`:pitch` / `:phoneme_timing` / 其它带 scope 的）。
+     scope 由 `Declaration.scope/2` 现场计算（不缓存于 struct 字段）。
   3. 相邻 content 空档 `gap`：
      - `gap < 3 * beat_ticks` → 粘连
      - `gap >= 3 * beat_ticks` → 切开；**前 1 拍归前片，后 2 拍归后片**；
@@ -39,9 +39,11 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
   def window(%Context{} = ctx) do
     beat = beat_ticks(ctx)
     threshold = 3 * beat
+    scope_ctx = Context.scope_ctx(ctx)
 
     with {:ok, note_spans} <- build_note_spans(ctx),
-         spans = note_spans ++ intervention_spans(ctx.interventions),
+         {:ok, spans} <- intervention_spans(ctx.interventions, scope_ctx),
+         spans = note_spans ++ spans,
          spans = Enum.sort_by(spans, & &1.start) do
       blocks =
         spans
@@ -101,33 +103,38 @@ defmodule Zongzi.Windowing.RestSplit3Beats do
     end
   end
 
-  # ---- interventions by channel ----
+  # ---- interventions: scope 现场计算 ----
 
-  defp intervention_spans(intervs) do
+  defp intervention_spans(intervs, scope_ctx) do
     intervs
-    |> Enum.map(&expand_intervention/1)
-    |> Enum.reject(&is_nil/1)
+    |> Enum.reduce_while({:ok, []}, fn int, {:ok, acc} ->
+      case expand_intervention(int, scope_ctx) do
+        {:ok, span} -> {:cont, {:ok, [span | acc]}}
+        {:error, _} = err -> {:halt, err}
+        nil -> {:cont, {:ok, acc}}
+      end
+    end)
+    |> case do
+      {:ok, spans} -> {:ok, Enum.reverse(spans)}
+      {:error, _} = err -> err
+    end
   end
 
-  # channel 分派：有合法 scope 的一律撑 content；后续 channel 可改写子句
-  defp expand_intervention(%Intervention{channel: :pitch, scope: scope}),
-    do: scope_to_span(scope)
+  # channel 分派：调用 declaration.scope 现场计算 → normalize 为 tick
+  defp expand_intervention(%Intervention{declaration: decl} = int, scope_ctx) do
+    case decl.scope(int, scope_ctx) do
+      {s, e} when is_integer(s) and is_integer(e) and e > s ->
+        {:ok, %{start: s, end: e, seq_ids: []}}
 
-  defp expand_intervention(%Intervention{channel: :phoneme_timing, scope: scope}),
-    do: scope_to_span(scope)
+      {:seconds, s, e} when is_float(s) and is_float(e) and e > s ->
+        with {:ok, {tick_s, tick_e}} <- Context.normalize_scope({:seconds, s, e}, scope_ctx) do
+          {:ok, %{start: tick_s, end: tick_e, seq_ids: []}}
+        end
 
-  defp expand_intervention(%Intervention{channel: _other, scope: scope}),
-    do: scope_to_span(scope)
-
-  defp scope_to_span({s, e}) when is_integer(s) and is_integer(e) and e > s do
-    %{
-      start: s,
-      end: e,
-      seq_ids: []
-    }
+      _ ->
+        nil
+    end
   end
-
-  defp scope_to_span(_), do: nil
 
   # ---- merge ----
 

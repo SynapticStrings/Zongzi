@@ -37,7 +37,6 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       anchor: {prev, seq_id, next_},
       payload: %{},
       snapshot: %{},
-      scope: nil,
       strategy: nil
     }
   end

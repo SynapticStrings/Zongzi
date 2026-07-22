@@ -38,7 +38,6 @@ defmodule Zongzi.AnchorTest do
       anchor: anchor,
       payload: %{delta: 100},
       snapshot: %{},
-      scope: nil
     }
   end
 

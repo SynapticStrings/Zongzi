@@ -27,6 +27,10 @@ Zongzi 及基于其开发的 SVS 编辑器的显著不同，是出发点是**跨
 | G-AN-04 | 跨窗 forbid | ScoredHost 在 seq_to_window 下拒绝跨窗宿主 | ScoredHost | 有单测（zongzi 核，Context 注入） |
 | G-INT-01 | 挂载→编辑→rebase→resolve | 完整对抗一轮（mock Declaration） | ZongziFeasibility | 已落地 |
 | G-INT-02 | snapshot 失配 | 投影变了 → conflict / skip，不静默 apply | Declaration 实现 | 已落地 |
+| G-INT-03 | 变速 scope | 仅变速，无音符编辑 → rebase_all 全 preserve | Anchor / Declaration | 已落地 |
+| G-INT-04 | 变速 scope | 变速 + tick 基准 pitch 干预 → resolve 通过 | Declaration | 已落地 |
+| G-INT-05 | 变速 scope | 变速 + 秒基准 phoneme timing → resolve conflict | Declaration | 已落地 |
+| G-INT-06 | 变速 scope | 变速 + 拖拽音符 → 结构 rebase 正常 + scope 按新 tick 重算 | Anchor / Declaration | 已落地 |
 | G-PRE-01 | 紧靠·无 interv | A-B 紧靠，均无 intervention。改 B 歌词 → preutterance 前移 | 结构无 conflict；preutterance 自然被连续音符吸收 | 已落地 |
 | G-PRE-02 | 紧靠·有 interv | A 尾部有 pitch curve interv，A-B 紧靠。改 B 歌词 → preutterance 挤入 A 尾部 | 结构无 conflict；语义层：A 尾部投影可能被 preutterance 覆盖 → resolution 需引擎上下文判真假 | 已落地 |
 | G-PRE-03 | 小 gap·无 interv | A-B 间隙 < preutterance 典型值，均无 interv。改 B 歌词 → preutterance 溢出到 gap 内，不触及 A | 结构无 conflict；语义层：投影变了但 A 无 interv → 无 conflict | 已落地 |
@@ -52,6 +56,43 @@ Zongzi 及基于其开发的 SVS 编辑器的显著不同，是出发点是**跨
 ```
 
 实现优先补「已落地」和「有单测（zongzi 核）」行的文档化；**未落地**行不要写假结果。
+
+
+## 变速 scope 场景（T1–T4）
+
+scope 现场计算（`Declaration.scope/2` + `scope_ctx`）而非缓存于 struct 字段。
+变速后 tick↔秒 映射变化，不同 channel 的 scope 语义分化为两条路径：
+- tick 基准 channel（pitch 等）——锚的 SeqID 三元组不变 → scope 不变 → resolve 通过
+- 秒基准 channel（phoneme_timing 等）——返回 `{:seconds, ...}`，经新 `tempo_map` 转 tick 后
+  边界位移 → snapshot mismatch → conflict
+
+### G-INT-03 仅变速，无音符编辑
+- Given: Timeline 上有 3 个音符 A-B-C，各有 pitch / phoneme_timing intervention
+- When: 变更 tempo（如 120→140 BPM），不改任何音符
+- Then (结构): `Anchor.rebase_all` — 所有 intervention preserve（SeqID 三元组不变）
+- Then (语义, tick 基准): pitch channel 的 `scope/2` 现场算返回同一 `{tick, tick}`
+- Then (语义, 秒基准): phoneme_timing 返回 `{:seconds, ...}`，经新 tempo_map 归一化后 tick 边界可能位移
+- 非目标: 不测引擎实际渲染结果
+
+### G-INT-04 变速 + tick 基准 pitch 干预
+- Given: A 音符上有 pitch curve intervention（control_points 锚 tick，snapshot 存 frame 级投影值）
+- When: 变速 → 投影重算，但音符 tick 网格不变
+- Then (结构): `Anchor.rebase_all` preserve
+- Then (语义): `Declaration.resolve` 比对 snapshot（frame 对齐 tick 重投） → 一致 → `{:ok, artifact}`
+- 非目标: 不测跨引擎版本升级导致的 snapshot 失配
+
+### G-INT-05 变速 + 秒基准 phoneme timing 干预
+- Given: A 音符上有 phoneme_timing intervention（boundary 存秒值，scope 返回 `{:seconds, s, e}`）
+- When: 变速 → `scope_ctx.tempo_map` 变化 → `Windowing.Context.normalize_scope/2` 转出的 tick 边界位移
+- Then (语义): fresh projection 的物理位置变了 → snapshot mismatch → `{:conflict, :snapshot_stale}`
+- 非目标: 不测「用户手动确认后 force apply」——那是 Caller 层的 UI 逻辑
+
+### G-INT-06 变速 + 拖拽音符
+- Given: A 音符上有 pitch intervention，随后用户同时变速并 drag A 到新 tick
+- When: 编辑回路：Timeline 写 → payload 坐标平移 → `Anchor.rebase_all` → scope 现场重算
+- Then (结构): `Anchor.rebase_all` 正常进行（锚存活检查用新 tick 下的 SeqID 三元组）
+- Then (scope): `Windowing` 切窗时调用 `declaration.scope(int, scope_ctx)`，用 drag 后的新 payload boundary 算 scope
+- 非目标: 不测多音符同时 drag 的批量平移
 
 ## 决策索引
 
