@@ -27,7 +27,8 @@ defmodule Zongzi.MixProject do
     "docs/en/guide/Overview.md",
     # Chinese doc
     "docs/zh/guide/Overview-zh.md",
-    "docs/zh/guide/TheLittleZongzi-zh.md"
+    "docs/zh/guide/TheLittleZongzi-zh.md",
+    "docs/zh/guide/CallerDesigning-zh.md"
   ]
 
   defp docs do

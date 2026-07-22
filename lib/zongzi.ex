@@ -5,18 +5,18 @@ defmodule Zongzi do
 
   ## Components
 
-  - 谱表数据（`Zongzi.Score`）
-      * 包括音高系统、时间系统（谱表、刻及物理时间）以及音符结构体
-  - 音符时间线（`Zongzi.Timeline`）
-      * 维护音符序列以及提供查询原语，以供和音符序列相关的结构锚定工作
-  - 锚定策略（`Zongzi.Anchor`）
-      * 执行编辑操作后的结构 rebase（`rebase_all` / Strategy / NoteTriplet / ScoredHost）
-  - 干预数据（`Zongzi.Intervention`）
-      * 可改的上游生成结果之形状 + `Declaration` 语义契约
-  - 分窗（`Zongzi.Windowing`）
-      * post-rebase 瞬态 `Segment`（`Strategy.window/1`、默认 `RestSplit3Beats`）
-  - 引擎行为（`Zongzi.Engine`）
-      * 接收单个或多个 `Zongzi.Windowing.Segment`，执行检查或渲染操作
+  - **Stage Data (`Zongzi.Score`)**
+    * Includes pitch system, time system (stage, ticks, and physical time), and note structure.
+  - **Note Timeline (`Zongzi.Timeline`)**
+    * Maintains note sequences and provides query primitives for anchoring structures related to note sequences.
+  - **Anchoring Strategies (`Zongzi.Anchor`)**
+    * Rebase the structure after editing operations (`rebase_all` / Strategy / NoteTriplet / ScoredHost)
+  - **Intervention Data (`Zongzi.Intervention`)**
+    * Modifiable shape of upstream generated results + `Declaration` semantic contract
+  - **Windowing (`Zongzi.Windowing`)**
+    * Post-rebase transient `Segment` (`Strategy.window/1`, default `RestSplit3Beats`)
+  - **Engine Behavior (`Zongzi.Engine`)**
+    * Accepts single or multiple... `Zongzi.Windowing.Segment` performs an inspection or rendering operation.
 
   ## 在您的系统中的角色
 
