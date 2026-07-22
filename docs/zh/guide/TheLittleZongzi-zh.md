@@ -457,14 +457,6 @@ A.
 
 2. resolve 什么时候返回 {:ok, applied}，什么时候返回 {:conflict, :snapshot_stale}？
 3. snapshot 的归一化做了什么？为什么需要归一化？
-4. "snapshot 失配"在 BRAPA 口音切换场景下对应什么？（参见 <https://github.com/openutau/OpenUtau/pull/1841> ，此会话是和 Hermes 吃过这个 issue 的瓜后搞的，所以沾了点上下文）
-
-产出：写一个具体的 BRAPA 例子：用户在音符上设了 Pitch Intervention，然后声库作者更新了 rendering engine。用 resolve 的输入输出描述这个 rebase 过程——不需要代码，用表格：
-
-| 步骤          | snapshot       | 新投影         | 结果     |
-|---------------|----------------|----------------|----------|
-| 挂载时        | [42, 440.0, 1] | —              | —        |
-| 更新后 rebase | [42, 440.0, 1] | [42, 445.0, 1] | conflict |
 
 ## Phase 6：Caller 怎么串起来（编排层）
 
@@ -483,7 +475,7 @@ A.
 
 ## Phase 7：Golden Scenarios（冒烟测试文档）
 
-文件：zongzi_feasibility/lib/zongzi_feasibility/scenarios/g_pre_01.ex、g_int_01.ex、g_int_02.ex
+TBD
 
 按这个顺序读，每个场景问：
 
