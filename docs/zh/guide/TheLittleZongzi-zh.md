@@ -140,9 +140,14 @@ A.
 
 其结构为：
 
-$$
-1, 2, 3, 6, 7, 4, 5
-$$
+```mermaid
+flowchart LR
+    head([head]) --> n1
+    n1["seq 1"] <--> n2["seq 2"] <--> n3["seq 3"] <--> n6["seq 6 🪦"] <--> n7["seq 7"] <--> n4["seq 4"] <--> n5["seq 5"]
+    n5 --> tail([tail])
+
+    style n6 stroke-dasharray: 5 5,color:#888
+```
 
 > *Q4. 如果我改一个 note 的歌词，Timeline 本身会变吗？*
 
@@ -274,6 +279,35 @@ A.
 
 其是 `strategy.rebase/4` 经过可选的 `decl.on_rebase/4` 两步处理返回的结果。
 
+```mermaid
+flowchart TD
+    start(["strategy.rebase(int, timeline, ctx, opts)"]) --> m{"TripletMatch.match<br/>Query.status(current)"}
+
+    m -->|active| cnt{"match_count<br/>current 恒匹配，prev/next 各 +1"}
+    cnt -->|"3/3"| preserve["{ :ok, :preserve }"]
+    cnt -->|"≥ threshold（默认 2）"| rebase["{ :ok, { :rebase, 锚更新 } }"]
+    cnt -->|"< threshold"| c1["conflict: adjacency_lost"]
+
+    m -->|merge_tombstone| mg{"allow_follow_merge?"}
+    mg -->|否| c2["conflict: merged_away"]
+    mg -->|是| mg2["follow_merge<br/>→ relocate 到合并产物"]
+
+    m -->|delete_tombstone| od{"orphan_direction"}
+    od -->|":never"| c3["conflict: relocate_forbidden"]
+    od -->|":prev / :next"| rl["双腿扫描最近活跃邻居<br/>→ relocate"]
+    rl -. "无活跃邻居" .-> c1
+
+    preserve --> hook{"decl.on_rebase/4<br/>（可选钩子，payload 坐标维护）"}
+    rebase --> hook
+    mg2 --> hook
+    rl --> hook
+
+    hook -->|"{ :ok, updated }"| survived[":survived"]
+    hook -->|"{ :split, children }"| split[":survived（子干预<br/>不再过 strategy）"]
+    hook -->|"{ :conflict, _ }"| out[":conflicts 上浮 UI"]
+    c1 & c2 & c3 --> out
+```
+
 > *Q3. split note 时，挂在原 note 上的 Intervention 怎么处理？*
 
 A. 按照我本来的想法是附近的都无效掉，但对于部分 interv 不用全部 discard 掉。所以可以交给 declara 的可选 callback `on_rebase/4` 来实现。
@@ -288,6 +322,18 @@ A.
 所以在其上的 Interv 有可能和临近的活跃音符有关。
 
 在 rebase 时，就会根据上下文的声明来进行向两边合并的尝试，但是也引入了直接 conflict 的选项。
+
+```mermaid
+flowchart TB
+    subgraph before["删除前：anchor = {3, 6, 7}"]
+        b3["3"] --- b6["6 ← focus"] --- b7["7"]
+    end
+    subgraph after["删除 6 后（orphan_direction: :next）"]
+        a3["3"] --- a6["6 🪦"] --- a7["7 ← 新 focus"]
+    end
+    before --> after
+    after --> r["scrub_triplet 洗净后<br/>新 anchor = {3, 7, 4}<br/>（6 被跳过，prev 腿落到 3）"]
+```
 
 > *Q5. rebase_all 里面走了哪两步？和渲染时的 resolve 怎么分界？*
 
@@ -308,6 +354,25 @@ A.
 - `rebase_all` — 编辑时判定**结构**存活（锚还指得准吗？）
 - `Declaration.resolve` — 渲染时比对 **snapshot** 判定**语义**有效（base 还对得上吗？）
 
+可以查看以下图示：
+
+```mermaid
+flowchart TB
+    subgraph edit["编辑时 · 结构层（Anchor）"]
+        A["Timeline 写操作落地"] --> B["Anchor.rebase_all"]
+        B --> C{"锚还指得准吗？<br/>（只看链表结构）"}
+        C -->|"preserve / rebase /<br/>relocate / split"| D[":survived"]
+        C -->|conflict| E["结构冲突上浮"]
+    end
+    subgraph render["check/render 时 · 语义层（Declaration）"]
+        F["Engine.check"] --> G["Declaration.resolve"]
+        G --> H{"base 还对得上<br/>snapshot 吗？"}
+        H -->|一致| I["delta apply"]
+        H -->|失配| J["语义冲突上浮"]
+    end
+    D == "survived 才能进渲染请求" ==> F
+```
+
 ## Phase 4：分窗与引擎整合
 
 涉及的模块：
@@ -320,6 +385,34 @@ A.
 > *Q1. Windowing 把 Timeline 切成什么给 Engine？为什么要切？*
 
 A. 将整个 Timeline 以及音符序列切成片段，以便于外部应用实现基于乐句的缓存与增量生成等特性，同时出于简化 API 以及兼容，哪怕不需要外部缓存，也会将整轨压缩成一个完整片段。
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant Decl as Declaration（channel 实现）
+    participant Eng as Engine 实现
+
+    rect rgb(230, 240, 255)
+        Note over Caller,Decl: ① 挂载时
+        Caller->>Decl: snapshot(projection, int)
+        Decl-->>Caller: 原始值剪影 → 存入 int.snapshot
+    end
+    rect rgb(255, 245, 230)
+        Note over Caller,Decl: ② 编辑时（rebase_all 内部，可选）
+        Caller->>Decl: on_rebase(int, meta, timeline, ctx)
+        Decl-->>Caller: ok / split / conflict
+    end
+    rect rgb(230, 255, 235)
+        Note over Caller,Decl: ③ 切窗前（Windowing）
+        Caller->>Decl: scope(int, scope_ctx)
+        Decl-->>Caller: {tick, tick} 或 {:seconds, s, e}（保守上界）
+    end
+    rect rgb(255, 230, 240)
+        Note over Eng,Decl: ④ check/render 时
+        Eng->>Decl: resolve(int, fresh_projection)
+        Decl-->>Eng: {:ok, applied} / {:conflict, reason}
+    end
+```
 
 > *Q2. Engine behaviour 要求实现哪几个函数？输入输出各是什么形状？*
 
