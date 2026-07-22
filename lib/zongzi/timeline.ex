@@ -74,7 +74,7 @@ defmodule Zongzi.Timeline do
 
   ## Examples
 
-      iex> new("Track-a")
+      iex> Timeline.new("Track-a")
       {:ok, %Timeline{track_id: "Track-a", next_seq: 1}}
   """
   def new(track_id) do
@@ -168,7 +168,7 @@ defmodule Zongzi.Timeline do
       iex> Timeline.new("Track-a") |> elem(1) |> Timeline.generate()
       {1, %Zongzi.Timeline{track_id: "Track-a", next_seq: 2}}
 
-      iex> %Zongzi.Timeline{track_id: "Track-b", next_seq: 2} |> generate()
+      iex> %Zongzi.Timeline{track_id: "Track-b", next_seq: 2} |> Timeline.generate()
       {2, %Zongzi.Timeline{track_id: "Track-b", next_seq: 3}}
   """
   @spec generate(t()) :: {SeqID.t(), t()}

@@ -19,7 +19,8 @@ defmodule Zongzi.Windowing.Context do
   Caller 负责在 `Anchor.rebase_all` 之后组装本结构。
   """
 
-  alias Zongzi.{Timeline, Intervention, Score.Note, Score.TimeSigMap, Score.TempoMap}
+  require Zongzi.Score.Tick
+  alias Zongzi.{Timeline, Intervention, Score.Note, Score.Tick, Score.TimeSigMap, Score.TempoMap}
   alias Zongzi.Timeline.SeqID
   alias Zongzi.Windowing.Segment
 
@@ -85,10 +86,10 @@ defmodule Zongzi.Windowing.Context do
   - `{:seconds, _, _}` 但 `tempo_map` 为 nil → `{:error, :tempo_map_required}`
   """
   @spec normalize_scope(
-          {Zongzi.Score.Tick.t(), Zongzi.Score.Tick.t()} | {:seconds, float, float},
+          {Tick.t(), Tick.t()} | {:seconds, float, float},
           Zongzi.Intervention.Declaration.scope_ctx()
-        ) :: {:ok, {Zongzi.Score.Tick.t(), Zongzi.Score.Tick.t()}} | {:error, term()}
-  def normalize_scope({s, e}, _scope_ctx) when is_integer(s) and is_integer(e) do
+        ) :: {:ok, {Tick.t(), Tick.t()}} | {:error, term()}
+  def normalize_scope({s, e}, _scope_ctx) when Tick.is_numeric_tick(s) and Tick.is_numeric_tick(e) do
     {:ok, {s, e}}
   end
 

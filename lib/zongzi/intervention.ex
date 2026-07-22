@@ -53,6 +53,7 @@ defmodule Zongzi.Intervention do
           declaration: module()
         }
 
+  # 创建时没有 declaration 模块会报错
   use Zongzi.Util.Model,
     keys: [
       :id,
@@ -65,13 +66,6 @@ defmodule Zongzi.Intervention do
     ],
     id_prefix: "iv_"
 
-  # 创建（绑定 declaration 以及 strategy）
-  # 如果没有 declaration 会报错
-  # create/1 new/1 留一个
-  def create(attrs) do
-    new(attrs)
-  end
-
   # 注入 payload 以及相关的
   # timeline 给未来 anchor 合法性校验预留的 slot
   # e.g. G2P 下游的音素挂载单或多个音符上
@@ -80,12 +74,16 @@ defmodule Zongzi.Intervention do
         %__MODULE__{declaration: declaration} = interv,
         payload,
         anchor,
-        _timeline,
+        timeline,
         projection
       ) do
     with {:ok, interv} <- update(interv, payload: payload, anchor: anchor),
-         {:ok, interv} <- update(interv, snapshot: declaration.snapshot(projection, interv)) do
+         {:ok, interv} <- update(interv, snapshot: declaration.snapshot(projection, interv)),
+         nil <- check_timeline(interv, timeline) do
       {:ok, interv}
+    else
+      {:error, _} = err -> err
+      unactive_seq_ids -> {:error, {:cought_unactive_seq_ids, unactive_seq_ids}}
     end
   end
 
@@ -109,4 +107,14 @@ defmodule Zongzi.Intervention do
     do: true
 
   defp valid_declaration?(_), do: false
+
+  defp check_timeline(%__MODULE__{strategy: {strategy_mod, _opts}} = interv, timeline) do
+    strategy_mod.referenced_seqs(interv)
+    |> Enum.find(&(!Zongzi.Timeline.Query.active?(timeline, &1)))
+  end
+
+  defp check_timeline(%__MODULE__{strategy: nil} = interv, timeline) do
+    Zongzi.Anchor.NoteTriplet.referenced_seqs(interv)
+    |> Enum.find(&(!Zongzi.Timeline.Query.active?(timeline, &1)))
+  end
 end

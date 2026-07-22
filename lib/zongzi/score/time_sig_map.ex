@@ -71,7 +71,22 @@ defmodule Zongzi.Score.TimeSigMap do
         end
       end
 
-      RecordMap.compile({record_events, record_end}, reducer, 0)
+      case RecordMap.compile({record_events, record_end}, reducer, 0) do
+        {:ok, tuple} ->
+          {:ok, tuple}
+
+        {:error, {:first_record_must_start_at_zero, pos}} ->
+          {:error, {:first_time_sig_event_must_start_at_one, pos}}
+
+        {:error, {:invalid_record_position, bad}} ->
+          {:error, {:invalid_time_sig_event_position, bad}}
+
+        {:error, :duplicate_record_positions} ->
+          {:error, :duplicate_time_sig_events}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
     end
   end
 

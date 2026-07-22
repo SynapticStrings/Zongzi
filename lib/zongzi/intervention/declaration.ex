@@ -133,9 +133,9 @@ defmodule Zongzi.Intervention.Declaration do
   def supports_on_rebase?(_), do: false
 
   @spec resolve_all([Intervention.t()], term()) :: %{
-        ok: [{Intervention.t(), term()}],
-        conflicts: [{Intervention.t(), term()}]
-      }
+          ok: [{Intervention.t(), term()}],
+          conflicts: [{Intervention.t(), term()}]
+        }
   def resolve_all([], _projection) do
     %{ok: [], conflicts: []}
   end

@@ -11,7 +11,7 @@ defmodule Zongzi.TimeSigMapTest do
 
     test "首个事件不在 bar 1" do
       events = [{2, {:standard, 4, 4}}]
-      assert {:error, {:first_record_must_start_at_zero, 1}} = TimeSigMap.compile(events)
+      assert {:error, {:first_time_sig_event_must_start_at_one, 1}} = TimeSigMap.compile(events)
     end
 
     test "单拍号 4/4" do

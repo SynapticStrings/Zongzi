@@ -47,7 +47,7 @@ defmodule Zongzi.Anchor.Strategy do
   返回 intervention 锚所引用的全部 SeqID 集合。
   供 `Timeline.gc/2` 判定哪些墓碑仍被引用、不可回收。
 
-  默认（NoteTriplet）返回三元组的三个元素。
+  NoteTriplet 返回三元组的三个元素。
   """
   @callback referenced_seqs(Intervention.t()) :: [SeqID.t()]
 
