@@ -48,23 +48,53 @@ defmodule Zongzi.Intervention do
           declaration: module()
         }
 
-  defstruct [
-    :id,
-    :channel,
-    :anchor,
-    :payload,
-    :snapshot,
-    :scope,
-    strategy: nil,
-    declaration: nil
-  ]
-
-  # 可以接 Zongzi.Util.Model 吗？
-  # 这个生命周期需要梳理一下
+  use Zongzi.Util.Model,
+    keys: [
+      :id,
+      :channel,
+      :anchor,
+      :payload,
+      :snapshot,
+      :scope,
+      strategy: nil,
+      declaration: nil
+    ],
+    id_prefix: "iv_"
 
   # 创建（绑定 declaration 以及 strategy）
+  # 如果没有 declaration 会报错
+  def create(attrs) do
+    new(attrs)
+  end
 
-  # 压 scope
+  # 注入 payload 以及相关的
+  def mount(%__MODULE__{declaration: declaration} = interv, payload, anchor, timeline, projection) do
+    with {:ok, interv} <- update(interv, [payload: payload, anchor: anchor]) do
+      interv
+      |> then(&update(&1, [scope: declaration.scope(&1, timeline)]))
+      |> elem(1)
+      |> then(&update(&1, [snapshot: declaration.snapshot(projection, &1)]))
+    end
+  end
 
-  # 注入 snapshot 以及 payload
+  # ---- 检查函数 ----
+
+  def validate(%__MODULE__{strategy: strategy, declaration: declaration} = interv) do
+    with {:strategy, true} <- {:strategy, valid_strategy?(strategy)},
+         {:declaration, true} <- {:declaration, valid_declaration?(declaration)} do
+      {:ok, interv}
+    else
+      {:strategy, false} -> {:error, {:strategy_invalid, strategy}}
+      {:declaration, false} -> {:error, {:declaration_invalid, declaration}}
+    end
+  end
+
+  defp valid_strategy?(strategy) when is_nil(strategy), do: true
+  defp valid_strategy?({strategy_mod, _opts}) when is_atom(strategy_mod), do: true
+  defp valid_strategy?(_), do: false
+
+  defp valid_declaration?(declaration) when is_atom(declaration) and not is_nil(declaration),
+    do: true
+
+  defp valid_declaration?(_), do: false
 end

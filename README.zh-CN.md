@@ -63,11 +63,16 @@ end
 
 ## 编码
 
-- Resolve 操作也来一个 resolve_all
+- [ ] Resolve 操作也来一个 resolve_all
     - 可以照着 zongzi_feasibility 实现
-- Intervention 缺完整的生命周期
-- Scope 的单位（Tick frame seconds）
-- 内核的序列化（Note Key Timeline Intervention）
+- [ ] Intervention 缺完整的生命周期
+    - [x] 简单实现
+    - [ ] 验证
+- [ ] Scope 的单位（Tick frame seconds）
+    - 变速怎么办？预期当然是要失效的（原始数据变了），所以 interv 的锚定不能够一定按照 Tick 来 => 写进新的 Golden Scenarios 里？
+- [ ] Bug Fix
+    - [ ] Timelinge.gc
+- [ ] 内核的序列化（Note Key Timeline Intervention）
 - 工程卫生类
     - 错误信息的分类 -> 每个模块自己负责吧，还用不上 Exception
     - Telemetry

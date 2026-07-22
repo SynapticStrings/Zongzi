@@ -210,13 +210,14 @@ defmodule Zongzi.Timeline do
 
   # 不放后面了，就前面几个函数会被用到
   defp update_timeline(%__MODULE__{} = timeline, %Note{} = note) do
-    {seq_id, timeline} = if note.seq_id do
-      # 为了规避哪个人想要将 seqID 小于目前 timeline 最大值的音符塞进来
-      next_seq = max(timeline.next_seq, note.seq_id + 1)
-      {next_seq - 1, %__MODULE__{timeline | next_seq: next_seq}}
-    else
-      {timeline.next_seq, %__MODULE__{timeline | next_seq: timeline.next_seq + 1}}
-    end
+    {seq_id, timeline} =
+      if note.seq_id do
+        # 为了规避哪个人想要将 seqID 小于目前 timeline 最大值的音符塞进来
+        next_seq = max(timeline.next_seq, note.seq_id + 1)
+        {next_seq - 1, %__MODULE__{timeline | next_seq: next_seq}}
+      else
+        {timeline.next_seq, %__MODULE__{timeline | next_seq: timeline.next_seq + 1}}
+      end
 
     note = %{note | seq_id: seq_id}
     {%__MODULE__{timeline | seq_map: Map.put(timeline.seq_map, seq_id, note.id)}, note, seq_id}
