@@ -464,14 +464,15 @@ defmodule Zongzi.Timeline do
       end)
       |> MapSet.new()
 
-    # TODO
-    # merge_notes 会保留 s2 的 seq_map 条目
-    # 在这里还需要删掉吗？
     unreachable = MapSet.difference(timeline.tombstones, live_refs)
 
     timeline =
       Enum.reduce(unreachable, timeline, fn seq, %__MODULE__{} = acc ->
-        %__MODULE__{acc | tombstones: MapSet.delete(acc.tombstones, seq)}
+        %__MODULE__{
+          acc
+          | tombstones: MapSet.delete(acc.tombstones, seq),
+            seq_map: Map.delete(acc.seq_map, seq)
+        }
         |> unlink(seq)
       end)
 
