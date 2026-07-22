@@ -132,6 +132,10 @@ defmodule Zongzi.Intervention.Declaration do
   def supports_on_rebase?(mod) when is_atom(mod), do: function_exported?(mod, :on_rebase, 4)
   def supports_on_rebase?(_), do: false
 
+  @spec resolve_all([Intervention.t()], term()) :: %{
+        ok: [{Intervention.t(), term()}],
+        conflicts: [{Intervention.t(), term()}]
+      }
   def resolve_all([], _projection) do
     %{ok: [], conflicts: []}
   end
