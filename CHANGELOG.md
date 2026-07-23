@@ -1,5 +1,81 @@
 # Changelog
 
+## 0.3.0 — 2026/07/23
+
+0.3.0 focused on Timeline internals, Intervention validation,
+Engine render contract tightening, and extensive documentation/translation work.
+
+### Breaking Changes
+
+- **`Engine.render/1` now accepts `checked_request`** (not bare `request`):
+  `%{request: request(), artifact: check_artifact(), fingerprint: term()}`.
+  Implementations must verify the fingerprint matches current state before
+  rendering. Return type extended with `{:async, ref}` for async pipelines.
+  (`4b97a2b`)
+- **`NoteTriplet.Options.orphan_direction` default changed from `:next` to `:never`**:
+  delete tombstones now return `{:conflict, :adjacency_lost}` without attempting
+  relocation unless explicitly opted in. `ScoredHost.Options` follows the same
+  convention. (`990c5c8`)
+- **`Intervention` struct: removed `:scope` field**: scope is now computed
+  on-the-fly via `Declaration.scope/2` (pure function). Cached scope was stale
+  after tempo/drag edits. (`41184c7`)
+- **Delete tombstone simplified**: removed SeqID comparison logic from
+  `Timeline.delete`; tombstone placement no longer depends on seq ordering.
+  (`ec35864`)
+
+### Added
+
+- `Timeline` implements `Enumerable` protocol — timelines are now directly
+  iterable with `Enum.*` functions. (`c1b42a7`)
+- `Zongzi.Timeline.Link`: extracted linked-list mechanics (insert, delete,
+  neighborhood traversal) into a dedicated internal module. (`2888801`)
+- `Intervention.mount/5`: new lifecycle function that validates anchor seq_ids
+  against the timeline, rejecting interventions referencing inactive positions.
+  (`f2bb1ba`)
+- `Engine.supports_render?/1`: convenience guard for checking render callback
+  availability. (`4b97a2b`)
+- `Intervention.validate/1`: structural validation for strategy and declaration
+  fields. (`f2bb1ba`)
+- MIT License added. (`bd30cd0`)
+
+### Fixed
+
+- `Timeline.gc/2` now correctly removes orphan items from `seq_map` that were
+  previously leaked during undo operations. (`8dbc735`)
+- `Engine.render/1` signature mismatch: callback accepted bare `request` but
+  the dispatch contract expected `checked_request`. (`4b97a2b`)
+
+### Refactored
+
+- `Timeline`: reduced code lines; extracted linked-list mechanics to
+  `Timeline.Link`; gc enhanced for undo scenarios. (`e3dcc3b`, `2888801`,
+  `9a69f69`)
+- `Anchor` relocation logic refined for missing anchor edge cases;
+  `orphan_direction: :never` now short-circuits before attempting relocate.
+  (`10069d5`)
+- `Intervention` resolution updated with proper typespecs for `resolve_all/2`.
+  (`82d6423`, `bf5a734`)
+- Anchor option handling improved with cleaner defaults propagation.
+  (`092dee8`)
+
+### Documentation
+
+- Translated timeline, score, note module comments to English. (`0a00f7a`,
+  `f752d8c`, `5666d47`)
+- Added/updated glossary (`docs/zh/spec/GLOSSARY.md`). (`ce2d586`, `f752d8c`,
+  `58c0195`)
+- Added golden scenarios (`docs/zh/spec/GOLDEN_SCENARIOS.md`) and mental models
+  (`docs/zh/spec/MENTAL_MODELS.md`). (`ce2d586`)
+- Added Chinese guide: TheLittleZongzi-zh with Mermaid diagrams.
+  (`ea25ccf`, `d610efb`, `0b927b4`)
+- Added CallerDesigning-zh design guide. (`055aa58`)
+- Added decision records for intervention semantics, windowing post-rebase,
+  declaration projection, anchor orthogonality, and more
+  (`docs/zh/spec/decisions/`). (`ce2d586`)
+- Migrated document snippets from moduledocs into guides. (`e11d645`)
+- Refined architecture docs; added language links in README. (`3e897f8`,
+  `5666d47`)
+
 ## 0.2.0 — 2026/07/21
 
 Contract revisions driven by Caller integration feedback (zongzi_feasibility),

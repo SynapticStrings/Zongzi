@@ -1,5 +1,7 @@
 # 粽子
 
+![img](https://img.shields.io/badge/code_translation-40%25-orange) ![img](https://img.shields.io/badge/中文文档进度-60%25-cyan)
+
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
 Zongzi 是：
