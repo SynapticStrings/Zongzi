@@ -14,7 +14,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
   | active | < threshold | `{:conflict, :adjacency_lost}` |
   | merge_tombstone | — | `{:conflict, :merged_away}`（或 `:follow_merge` relocate） |
   | delete_tombstone | — | relocate 到最近活跃邻居（双腿扫描） |
-  | missing | — | conflict（锚点丢失） |
+  | missing | — | 依据注入 interv 时的 option 等判断是 conflict 还是 relocated |
 
   ## match_threshold
 
