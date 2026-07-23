@@ -14,7 +14,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
   | active | < threshold | `{:conflict, :adjacency_lost}` |
   | merge_tombstone | — | `{:conflict, :merged_away}`（或 `:follow_merge` relocate） |
   | delete_tombstone | — | relocate 到最近活跃邻居（双腿扫描） |
-  | missing | — | 用 prev/next 腿重新出发，否则 conflict |
+  | missing | — | conflict（锚点丢失） |
 
   ## match_threshold
 
@@ -78,7 +78,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
         end
 
       {:tombstone, :delete} ->
-        do_relocate(int, timeline, current, opts.orphan_direction)
+        maybe_relocate(int, timeline, current, opts.orphan_direction)
     end
   end
 
@@ -120,15 +120,18 @@ defmodule Zongzi.Anchor.NoteTriplet do
     end
   end
 
-  # relocate：从当前位置（墓碑）向两侧扫描活跃邻居
-  defp do_relocate(int, timeline, current, direction) do
+  # relocate：从当前位置（墓碑）向两侧扫描活跃邻居。
+  # 当 current 已从 Timeline 移除（missing）时 Query.scan 返回 []，
+  # 直接走 conflict 路径——这属于"挂载时 Caller 选错了锚点"或
+  # "连续删除导致锚点链断裂"的正常语义冲突，不需要额外处理。
+  defp maybe_relocate(int, timeline, current, direction) do
     case direction do
       :never -> {:conflict, :relocate_forbidden}
-      _ -> do_relocate_inner(int, timeline, current, direction)
+      _ -> maybe_relocate_inner(int, timeline, current, direction)
     end
   end
 
-  defp do_relocate_inner(int, timeline, current, direction) do
+  defp maybe_relocate_inner(int, timeline, current, direction) do
     prev_cand = Query.scan(timeline, current, :prev, active_only: true, limit: 1)
     next_cand = Query.scan(timeline, current, :next, active_only: true, limit: 1)
 

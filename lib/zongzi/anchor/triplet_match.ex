@@ -14,7 +14,6 @@ defmodule Zongzi.Anchor.TripletMatch do
   返回值：
   - `{:active, match_count, {new_prev, current, new_next}}`
   - `{:tombstone, :merge | :delete}`
-  - `{:tombstone, :delete, old_prev, old_next}` — delete tombstone hold legs
   """
   @spec match(Intervention.t(), Timeline.t()) ::
           {:active, pos_integer(), triplet()}
