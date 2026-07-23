@@ -90,7 +90,8 @@ defmodule Zongzi.Windowing.Context do
           {Tick.t(), Tick.t()} | {:seconds, float, float},
           Zongzi.Intervention.Declaration.scope_ctx()
         ) :: {:ok, {Tick.t(), Tick.t()}} | {:error, term()}
-  def normalize_scope({s, e}, _scope_ctx) when Tick.is_numeric_tick(s) and Tick.is_numeric_tick(e) do
+  def normalize_scope({s, e}, _scope_ctx)
+      when Tick.is_numeric_tick(s) and Tick.is_numeric_tick(e) do
     {:ok, {s, e}}
   end
 

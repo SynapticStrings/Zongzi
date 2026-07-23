@@ -40,7 +40,8 @@ defmodule Zongzi.Timeline do
   写操作后 Caller 侧 note 快照（notes_by_seq）的同步需要单独实现。
   """
 
-  alias Zongzi.{Util.ID, Score.Note, Timeline.SeqID}
+  alias Zongzi.{Util.ID, Score.Note}
+  alias Zongzi.Timeline.{SeqID, Link, Validator}
 
   @type t :: %__MODULE__{
           track_id: ID.t(),
@@ -63,7 +64,7 @@ defmodule Zongzi.Timeline do
   ]
 
   @doc """
-  创建空 Timeline。
+  Create blank Timeline.
 
   ## Examples
 
@@ -75,7 +76,7 @@ defmodule Zongzi.Timeline do
   end
 
   @doc """
-  从序列化参数重建 Timeline。
+  Rebuild Timeline within serialized arguments.
 
   `note_order` → 链表，O(n)。
 
@@ -117,15 +118,20 @@ defmodule Zongzi.Timeline do
     tombstones = attrs |> Map.get(:tombstones, []) |> MapSet.new()
     next_seq = Map.get(attrs, :next_seq, default_next(order))
 
-    tl = %__MODULE__{
+    init_tl = %__MODULE__{
       track_id: track_id,
       seq_map: seq_map,
       tombstones: tombstones,
       next_seq: next_seq
     }
 
-    tl = Enum.reduce(order, tl, fn seq_id, acc -> link_tail(acc, seq_id) end)
-    {:ok, tl}
+    {:ok,
+     Enum.reduce(order, init_tl, fn seq_id, timeline ->
+       {head, tail, nodes} =
+         Link.link_tail({timeline.head, timeline.tail, timeline.nodes}, seq_id)
+
+       %{timeline | head: head, tail: tail, nodes: nodes}
+     end)}
   end
 
   defp default_next([]), do: 1
@@ -155,7 +161,7 @@ defmodule Zongzi.Timeline do
 
   @doc "获得给定 SeqID 的 NoteID 。"
   @spec note_id_for(t(), SeqID.t()) :: {:ok, ID.t(Note.t())} | :error
-  def note_id_for(%__MODULE__{seq_map: seq_map}, seq_id), do: Map.get(seq_map, seq_id)
+  def note_id_for(%__MODULE__{seq_map: seq_map}, seq_id), do: Map.fetch(seq_map, seq_id)
 
   @doc """
   基于 Timeline 自持的计数器生成新 SeqID。
@@ -173,7 +179,7 @@ defmodule Zongzi.Timeline do
     do: {next, %__MODULE__{timeline | next_seq: next + 1}}
 
   @doc "Validate Timeline."
-  defdelegate validate(timeline), to: Zongzi.Timeline.Validator
+  defdelegate validate(timeline), to: Validator
 
   # ---- 写操作（单个音符的 CRUD） ----
 
@@ -181,8 +187,10 @@ defmodule Zongzi.Timeline do
   @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()} | {:error, term()}
   def insert_note(%__MODULE__{} = timeline, %Note{} = note) do
     with {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
-      timeline = link_tail(timeline, seq_id)
-      {:ok, timeline, note}
+      {head, tail, nodes} =
+        Link.link_tail({timeline.head, timeline.tail, timeline.nodes}, seq_id)
+
+      {:ok, %{timeline | head: head, tail: tail, nodes: nodes}, note}
     end
   end
 
@@ -191,8 +199,10 @@ defmodule Zongzi.Timeline do
   def insert_note_before(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
     with :ok <- assert_has_node(timeline, target_seq),
          {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
-      timeline = link_before(timeline, seq_id, target_seq)
-      {:ok, timeline, note}
+      {head, tail, nodes} =
+        Link.link_before({timeline.head, timeline.tail, timeline.nodes}, seq_id, target_seq)
+
+      {:ok, %{timeline | head: head, tail: tail, nodes: nodes}, note}
     end
   end
 
@@ -201,8 +211,14 @@ defmodule Zongzi.Timeline do
   def insert_note_after(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
     with :ok <- assert_has_node(timeline, target_seq),
          {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
-      timeline = link_after(timeline, seq_id, target_seq)
-      {:ok, timeline, note}
+      {head, tail, nodes} =
+        Link.link_after(
+          {timeline.head, timeline.tail, timeline.nodes},
+          seq_id,
+          target_seq
+        )
+
+      {:ok, %{timeline | head: head, tail: tail, nodes: nodes}, note}
     end
   end
 
@@ -248,10 +264,16 @@ defmodule Zongzi.Timeline do
       before_note = %{before_note | seq_id: seq_id}
       after_note = %{after_note | seq_id: new_seq}
 
-      timeline =
+      {head, tail, nodes} =
+        Link.link_after({timeline.head, timeline.tail, timeline.nodes}, new_seq, seq_id)
+
+      timeline = %{
         timeline
-        |> link_after(new_seq, seq_id)
-        |> then(&%{&1 | seq_map: Map.put(&1.seq_map, new_seq, new_id)})
+        | head: head,
+          tail: tail,
+          nodes: nodes,
+          seq_map: Map.put(timeline.seq_map, new_seq, new_id)
+      }
 
       {:ok, timeline, before_note, after_note}
     end
@@ -270,15 +292,16 @@ defmodule Zongzi.Timeline do
       if seq_id == target_seq do
         {:ok, timeline}
       else
-        timeline = unlink(timeline, seq_id)
+        {head, tail, nodes} =
+          Link.unlink({timeline.head, timeline.tail, timeline.nodes}, seq_id)
 
-        timeline =
+        {head, tail, nodes} =
           case where do
-            :before -> link_before(timeline, seq_id, target_seq)
-            :after -> link_after(timeline, seq_id, target_seq)
+            :before -> Link.link_before({head, tail, nodes}, seq_id, target_seq)
+            :after -> Link.link_after({head, tail, nodes}, seq_id, target_seq)
           end
 
-        {:ok, timeline}
+        {:ok, %{timeline | head: head, tail: tail, nodes: nodes}}
       end
     end
   end
@@ -336,44 +359,6 @@ defmodule Zongzi.Timeline do
     {Enum.to_list(start..(start + count - 1)), %{timeline | next_seq: start + count}}
   end
 
-  # 纯 nodes map 操作（不依赖 struct 匹配）
-  defp put_next_raw(nodes, seq_id, new_next) do
-    {prv, _} = Map.fetch!(nodes, seq_id)
-    Map.put(nodes, seq_id, {prv, new_next})
-  end
-
-  defp put_prev_raw(nodes, seq_id, new_prev) do
-    {_, nxt} = Map.fetch!(nodes, seq_id)
-    Map.put(nodes, seq_id, {new_prev, nxt})
-  end
-
-  # 从 seq_ids 列表构造相邻子链 nodes
-  defp build_sub_chain([]), do: %{}
-
-  defp build_sub_chain(seq_ids) do
-    prevs = [nil | Enum.drop(seq_ids, -1)]
-    nexts = Enum.drop(seq_ids, 1) ++ [nil]
-
-    [seq_ids, prevs, nexts]
-    |> Enum.zip()
-    |> Enum.map(fn {sid, prv, nxt} -> {sid, {prv, nxt}} end)
-    |> Map.new()
-  end
-
-  # 从 from 向 next 方向走到 to，收集经过的 seq_id
-  defp collect_range(_nodes, current, to, acc) when current == to,
-    do: {:ok, Enum.reverse([current | acc])}
-
-  defp collect_range(nodes, current, to, acc) do
-    {_, nxt} = Map.fetch!(nodes, current)
-
-    if is_nil(nxt) do
-      {:error, {:range_not_found, to}}
-    else
-      collect_range(nodes, nxt, to, [current | acc])
-    end
-  end
-
   @doc """
   批量 splice：把一组 notes 整体接到 target_seq 之后。O(n) 建子链 + O(1) splice。
 
@@ -393,7 +378,7 @@ defmodule Zongzi.Timeline do
         |> Enum.map(fn {note, sid} -> %{note | seq_id: sid} end)
 
       # 构造子链 nodes
-      sub_nodes = build_sub_chain(seq_ids)
+      sub_nodes = Link.build_sub_chain(seq_ids)
 
       # 加入 seq_map
       seq_map =
@@ -409,12 +394,12 @@ defmodule Zongzi.Timeline do
       nodes =
         timeline.nodes
         |> Map.merge(sub_nodes)
-        |> put_next_raw(target_seq, first)
-        |> put_prev_raw(first, target_seq)
+        |> Link.put_next(target_seq, first)
+        |> Link.put_prev(first, target_seq)
 
       nodes =
         if old_next do
-          nodes |> put_next_raw(last, old_next) |> put_prev_raw(old_next, last)
+          nodes |> Link.put_next(last, old_next) |> Link.put_prev(old_next, last)
         else
           nodes
         end
@@ -434,7 +419,7 @@ defmodule Zongzi.Timeline do
   def delete_range(%__MODULE__{} = timeline, from_seq, to_seq) do
     with :ok <- assert_has_node(timeline, from_seq),
          :ok <- assert_has_node(timeline, to_seq) do
-      case collect_range(timeline.nodes, from_seq, to_seq, []) do
+      case Link.collect_range(timeline.nodes, from_seq, to_seq) do
         {:ok, seq_ids} ->
           timeline =
             Enum.reduce(seq_ids, timeline, fn sid, acc ->
@@ -478,12 +463,14 @@ defmodule Zongzi.Timeline do
 
     timeline =
       Enum.reduce(unreachable, timeline, fn seq, %__MODULE__{} = acc ->
-        %__MODULE__{
+        acc = %__MODULE__{
           acc
           | tombstones: MapSet.delete(acc.tombstones, seq),
             seq_map: Map.delete(acc.seq_map, seq)
         }
-        |> unlink(seq)
+
+        {head, tail, nodes} = Link.unlink({acc.head, acc.tail, acc.nodes}, seq)
+        %{acc | head: head, tail: tail, nodes: nodes}
       end)
 
     {:ok, timeline}
@@ -509,79 +496,6 @@ defmodule Zongzi.Timeline do
     end
   end
 
-  # ---- Private: 链表原语 ----
-
-  defp link_tail(%__MODULE__{head: nil} = timeline, seq_id) do
-    %__MODULE__{
-      timeline
-      | head: seq_id,
-        tail: seq_id,
-        nodes: Map.put(timeline.nodes, seq_id, {nil, nil})
-    }
-  end
-
-  defp link_tail(%__MODULE__{tail: tail} = timeline, seq_id) do
-    node = {tail, nil}
-    timeline = %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, node)}
-    timeline = put_next(timeline, tail, seq_id)
-    %__MODULE__{timeline | tail: seq_id}
-  end
-
-  defp link_after(%__MODULE__{} = timeline, seq_id, after_seq) do
-    {_, nxt} = Map.fetch!(timeline.nodes, after_seq)
-    node = {after_seq, nxt}
-    timeline = %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, node)}
-    timeline = put_next(timeline, after_seq, seq_id)
-
-    if nxt do
-      put_prev(timeline, nxt, seq_id)
-    else
-      %__MODULE__{timeline | tail: seq_id}
-    end
-  end
-
-  defp link_before(%__MODULE__{} = timeline, seq_id, before_seq) do
-    {prv, _} = Map.fetch!(timeline.nodes, before_seq)
-    node = {prv, before_seq}
-    timeline = %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, node)}
-    timeline = put_prev(timeline, before_seq, seq_id)
-
-    if prv do
-      put_next(timeline, prv, seq_id)
-    else
-      %__MODULE__{timeline | head: seq_id}
-    end
-  end
-
-  defp unlink(%__MODULE__{} = timeline, seq_id) do
-    {prv, nxt} = Map.fetch!(timeline.nodes, seq_id)
-    timeline = %__MODULE__{timeline | nodes: Map.delete(timeline.nodes, seq_id)}
-
-    cond do
-      prv && nxt ->
-        timeline |> put_next(prv, nxt) |> put_prev(nxt, prv)
-
-      prv ->
-        %__MODULE__{put_next(timeline, prv, nil) | tail: prv}
-
-      nxt ->
-        %__MODULE__{put_prev(timeline, nxt, nil) | head: nxt}
-
-      true ->
-        %__MODULE__{timeline | head: nil, tail: nil}
-    end
-  end
-
-  defp put_next(%__MODULE__{} = timeline, seq_id, new_next) do
-    {prv, _} = Map.fetch!(timeline.nodes, seq_id)
-    %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, {prv, new_next})}
-  end
-
-  defp put_prev(%__MODULE__{} = timeline, seq_id, new_prev) do
-    {_, nxt} = Map.fetch!(timeline.nodes, seq_id)
-    %__MODULE__{timeline | nodes: Map.put(timeline.nodes, seq_id, {new_prev, nxt})}
-  end
-
   defp assert_has_node(timeline, seq_id) do
     if has_node?(timeline, seq_id), do: :ok, else: {:error, {:not_found, seq_id}}
   end
@@ -591,11 +505,12 @@ defmodule Zongzi.Timeline do
   end
 end
 
+# 只要链表元素对上就行，先不用管活不活的
+# 大不了过层 Enum.filter/2
 # defimpl Enumerable, for: Zongzi.Timeline do
 #   def count(%Zongzi.Timeline{seq_map: seq_map}) do
-#     {:ok, map_size(seq_map) + 2}
+#     {:ok, map_size(seq_map)}
 #   end
-#   # 再加上边界条件，e.g. 新建的
 #
 #   def member?(%Zongzi.Timeline{}, note_seq_id) when is_integer(note_seq_id) and note_seq_id > 0 do
 #     # ...

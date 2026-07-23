@@ -9,7 +9,7 @@ defmodule Zongzi.Timeline.Neighborhood do
 
   @type status :: :active | :merge_tombstone | :delete_tombstone
 
-  @typedoc "在链表上的格距（含墓碑格）"
+  @typedoc "在链表上的格距（依照 Query 的选项确定包含或舍弃墓碑格）"
   @type hops_from_focus :: non_neg_integer()
 
   @type cell :: %{
