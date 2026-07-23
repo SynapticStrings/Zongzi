@@ -3,8 +3,8 @@ defmodule Zongzi.MixProject do
 
   @version "0.3.0"
   @description "A protocol and BEAM implementation" <>
-    "for preserves user edits across upstream regeneration cycles" <>
-    "in singing synthesis application."
+                 "for preserves user edits across upstream regeneration cycles" <>
+                 "in singing synthesis application."
 
   def project do
     [
@@ -33,11 +33,12 @@ defmodule Zongzi.MixProject do
   defp package do
     [
       name: :zongzi,
-      files: ~w(README* CHANGELOG.md lib mix.exs LICENSE),
+      files: ~w(README* CHANGELOG.md LICENSE docs lib mix.exs .formatter.exs),
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/SynapticStrings/Zongzi"}
     ]
   end
+
   # ---- Docs ----
 
   @extras_docs [
@@ -48,77 +49,79 @@ defmodule Zongzi.MixProject do
     "docs/zh/guide/CallerDesigning-zh.md"
   ]
 
+  @modules_groups [
+    Timeline: [
+      Zongzi.Timeline,
+      Zongzi.Timeline.SeqID,
+      Zongzi.Timeline.Query,
+      Zongzi.Timeline.Neighborhood
+    ],
+    Anchor: [
+      Zongzi.Anchor,
+      Zongzi.Anchor.Strategy,
+      Zongzi.Anchor.Context,
+      Zongzi.Anchor.NoteTriplet,
+      Zongzi.Anchor.ScoredHost,
+      Zongzi.Anchor.TripletMatch
+    ],
+    Intervention: [
+      Zongzi.Intervention,
+      Zongzi.Intervention.Declaration
+    ],
+    Score: [
+      Zongzi.Score,
+      Zongzi.Score.Key,
+      Zongzi.Score.Key.Inner,
+      Zongzi.Score.Key.TwelveET,
+      Zongzi.Score.Note,
+      Zongzi.Score.Grid
+    ],
+    "Score Timing": [
+      Zongzi.Score.Tick,
+      Zongzi.Score.Record,
+      Zongzi.Score.RecordMap,
+      Zongzi.Score.Tempo,
+      Zongzi.Score.Tempo.Event,
+      Zongzi.Score.Tempo.Segment,
+      Zongzi.Score.TempoMap,
+      Zongzi.Score.Tempo.Linear,
+      Zongzi.Score.Tempo.Step,
+      Zongzi.Score.TimeSig,
+      Zongzi.Score.TimeSigMap
+    ],
+    Windowing: [
+      Zongzi.Windowing,
+      Zongzi.Windowing.Context,
+      Zongzi.Windowing.Segment,
+      Zongzi.Windowing.Strategy,
+      Zongzi.Windowing.WholeTrack,
+      Zongzi.Windowing.RestSplit3Beats
+    ],
+    Engine: [
+      Zongzi.Engine
+    ],
+    Curve: [
+      Zongzi.Curve,
+      Zongzi.Curve.Adapter,
+      Zongzi.Curve.Chunk,
+      Zongzi.Curve.ControlPoint,
+      Zongzi.Curve.Adapter.Bezier,
+      Zongzi.Curve.Adapter.CatmullRom
+    ],
+    Utilities: [
+      Zongzi.Helpers,
+      Zongzi.Util.ID,
+      Zongzi.Util.Model,
+      Zongzi.Util.Object
+    ]
+  ]
+
   defp docs do
     [
       main: "readme",
       extras: ["README.md", "README.zh-CN.md", "CHANGELOG.md"] ++ @extras_docs,
       before_closing_head_tag: &before_closing_head_tag/1,
-      groups_for_modules: [
-        Timeline: [
-          Zongzi.Timeline,
-          Zongzi.Timeline.SeqID,
-          Zongzi.Timeline.Query,
-          Zongzi.Timeline.Neighborhood
-        ],
-        Anchor: [
-          Zongzi.Anchor,
-          Zongzi.Anchor.Strategy,
-          Zongzi.Anchor.Context,
-          Zongzi.Anchor.NoteTriplet,
-          Zongzi.Anchor.ScoredHost,
-          Zongzi.Anchor.TripletMatch
-        ],
-        Intervention: [
-          Zongzi.Intervention,
-          Zongzi.Intervention.Declaration
-        ],
-        Score: [
-          Zongzi.Score,
-          Zongzi.Score.Key,
-          Zongzi.Score.Key.Inner,
-          Zongzi.Score.Key.TwelveET,
-          Zongzi.Score.Note,
-          Zongzi.Score.Grid
-        ],
-        "Score Timing": [
-          Zongzi.Score.Tick,
-          Zongzi.Score.Record,
-          Zongzi.Score.RecordMap,
-          Zongzi.Score.Tempo,
-          Zongzi.Score.Tempo.Event,
-          Zongzi.Score.Tempo.Segment,
-          Zongzi.Score.TempoMap,
-          Zongzi.Score.Tempo.Linear,
-          Zongzi.Score.Tempo.Step,
-          Zongzi.Score.TimeSig,
-          Zongzi.Score.TimeSigMap
-        ],
-        Windowing: [
-          Zongzi.Windowing,
-          Zongzi.Windowing.Context,
-          Zongzi.Windowing.Segment,
-          Zongzi.Windowing.Strategy,
-          Zongzi.Windowing.WholeTrack,
-          Zongzi.Windowing.RestSplit3Beats
-        ],
-        Engine: [
-          Zongzi.Engine
-        ],
-        Curve: [
-          Zongzi.Curve,
-          Zongzi.Curve.Adapter,
-          Zongzi.Curve.Chunk,
-          Zongzi.Curve.ControlPoint,
-          Zongzi.Curve.Adapter.Bezier,
-          Zongzi.Curve.Adapter.CatmullRom
-        ],
-        Utilities: [
-          Zongzi.Helpers,
-          Zongzi.Util.ID,
-          Zongzi.Util.Model,
-          Zongzi.Util.Object
-        ]
-      ],
+      groups_for_modules: @modules_groups,
       groups_for_extras: [
         "English Documents": [~r/docs\/en\/.?/],
         中文文档: [~r/docs\/zh\/.?/]
