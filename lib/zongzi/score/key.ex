@@ -1,15 +1,15 @@
 defmodule Zongzi.Score.Key do
   @moduledoc """
-  关于音高的领域模型。
+  Domain model for pitch.
 
-  因为调式的不同，也会采用适配器的模式。
+  Uses an adapter pattern to support different tuning systems.
 
-  主要负责两个方面数据的互换：
+  Handles conversion between two representations:
 
-  * 谱表的数据
-  * MIDI/频率的数据
+  * Staff notation data
+  * MIDI / frequency data
 
-  其以内部类型被保留/序列化。
+  Key values are stored and serialized in their internal type.
   """
 
   @type key_struct :: struct()
@@ -28,22 +28,22 @@ defmodule Zongzi.Score.Key do
   @callback from_midi(midi_note :: number(), ctx :: term()) ::
               {:ok, key_struct()} | {:error, term()}
 
-  # 去向
+  # Outbound
   defprotocol Inner do
-    @moduledoc "部分去向的操作集合"
+    @moduledoc "Outbound conversion operations."
 
-    # ---- 谱表 ----
+    # ---- Staff Notation ----
 
-    @doc "根据谱表类型（如 :staff, :numbered）转换为谱表渲染所需的数据"
+    @doc "Converts to staff notation data for the given staff type (e.g., `:staff`, `:numbered`)."
     def to_score(key, type, ctx)
-    # 比方说十二平均律的钢琴卷帘窗转五线谱就需要调号作为上下文
+    # e.g. converting a 12-TET piano roll to five-line staff requires a key signature as context.
 
     # ---- MIDI / Frequency ----
 
-    @doc "Convert into MIDI number(allow float)"
+    @doc "Converts to a MIDI note number (float allowed)."
     def to_midi(key)
 
-    @doc "Convert to frequency(Hz)"
+    @doc "Converts to frequency in Hz."
     def to_frequency(key, reference)
   end
 

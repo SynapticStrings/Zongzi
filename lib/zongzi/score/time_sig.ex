@@ -11,10 +11,10 @@ defmodule Zongzi.Score.TimeSig do
   # Compound meters and irregular meters
   @type compound :: {:compound, groupings :: [pos_integer()], denominator :: pos_integer()}
 
-  # San
+  # 散拍子 (free meter)
   @type free :: :san
 
-  @typedoc "number of bar"
+  @typedoc "Number of bars"
   @type bar :: pos_integer()
 
   @typedoc "Time signature"
@@ -25,7 +25,7 @@ defmodule Zongzi.Score.TimeSig do
 
   @type time_sig_events :: [time_sig_event()] | {[time_sig_event()], Record.end_position()}
 
-  @doc "Get whole tick length eithin specific bar"
+  @doc "Returns the total tick length within a specific bar."
   def ticks_per_bar({num, den}, tpqn) when is_integer(num) and is_integer(den),
     do: ticks_per_bar({:standard, num, den}, tpqn)
 

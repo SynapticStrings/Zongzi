@@ -2,10 +2,10 @@ defmodule Zongzi.Score.Record do
   @moduledoc """
   General record abstraction based on tick/bar.
 
-  Reccord event model:
+  Record event model:
 
-  - Every record is an event on timeline at specific location(as tick or bar)
-  - Record 列表通过 `RecordMap` 编译为可二分查找的区间元组
+  - Every record is an event on the timeline at a specific location (tick or bar)
+  - Records are compiled by `RecordMap` into interval tuples for binary search
   """
 
   alias Zongzi.Score.Tick

@@ -1,10 +1,10 @@
 defmodule Zongzi.Score.Tick do
-  @moduledoc "Tick is time unit for SVS editor side."
+  @moduledoc "Tick is the time unit for the SVS editor."
 
   @type numeric_tick :: non_neg_integer()
   @type dynamic_tick :: :dynamic_tick
 
-  @typedoc "incluade specific positive integer tick and variable `:dynamic_tick`."
+  @typedoc "Includes a specific non-negative integer tick or the sentinel `:dynamic_tick`."
   @type t :: numeric_tick() | dynamic_tick()
 
   @spec get_dynamic_tick() :: dynamic_tick()

@@ -1,31 +1,32 @@
 defmodule Zongzi do
   @moduledoc """
-  Lightweight functional components and adaptation contracts in the SVS domain are designed to
-  preserve user-defined parameters during score changed.
+  Lightweight, engine-agnostic components for SVS (Singing Voice Synthesis) editors.
+  Preserves user edits across upstream regeneration cycles.
 
   ## Components
 
-  - **Stage Data (`Zongzi.Score`)**
-    * Includes pitch system, time system (stage, ticks, and physical time), and note structure.
-  - **Note Timeline (`Zongzi.Timeline`)**
-    * Maintains note sequences and provides query primitives for anchoring structures related to note sequences.
-  - **Anchoring Strategies (`Zongzi.Anchor`)**
-    * Rebase the structure after editing operations
-  - **Intervention Data (`Zongzi.Intervention`)**
-    * Modifiable shape of upstream generated results with semantic contract
-  - **Windowing (`Zongzi.Windowing`)**
-    * Post-rebase transient `Segment` which splited whole Timeline
-  - **Engine Behavior (`Zongzi.Engine`)**
-    * Accepts single or multiple... `Zongzi.Windowing.Segment` performs an inspection or rendering operation.
+  - Stage Data (`Zongzi.Score`)
+    - Pitch system, time system (ticks and physical time), note structure.
+  - Note Timeline (`Zongzi.Timeline`)
+    - Authoritative note sequence (doubly-linked list + SeqID + tombstones).
+    Provides query primitives for anchoring.
+  - Anchoring (`Zongzi.Anchor`)
+    - Rebase anchor structures after edit batches.
+  - Intervention (`Zongzi.Intervention`)
+    - Mutable overlay on upstream results, with a semantic contract.
+  - Windowing (`Zongzi.Windowing`)
+    - Splits the Timeline into transient `Zongzi.Windowing.Segment`s after rebase.
+  - Engine (`Zongzi.Engine`)
+    - Behaviour contract: accepts one or more `Zongzi.Windowing.Segment`s for check or render.
 
-  ## Zongzi's Role in Your System
+  ## Role in Your System
 
-  - Need a caller can maintian Notes(with SeqID), components Context(for anchor's strategy and for windowing),
-    integrate the whole antagonistic loop(and present conflict to user)
-  - Operations from editor(e.g. draw a curve, undo, redo) stay outside
-  - channel fields in declaration, model inference handle by engine or sideway adapter
-  - **Caller** 是任意编排者：持 Note 表、组 Context、串联 rebase → window → check/render、上浮 conflict
-  - 编辑器操作面（曲线手绘等）不进系统
-  - Declaration 具体 channel、真模型推理 — 引擎或旁路适配层
+  Zongzi is a library, not a framework. The Caller (your application) is the orchestrator:
+
+  - Owns the Note table (keyed by SeqID) and assembles the rebase Context.
+  - Wires the pipeline: update Timeline → rebase → window → check/render.
+  - Surfaces conflicts to the user for resolution.
+  - Editor interactions (curve drawing, undo/redo) stay outside Zongzi.
+  - Channel-specific declaration fields and model inference are handled by the Engine implementation or an out-of-band adapter.
   """
 end
