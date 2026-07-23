@@ -12,6 +12,8 @@ defmodule Zongzi.Timeline.SeqID do
   > 其和用户可见的注入 `"Note_abc123"` 的 `Note.id` 是不同的。`SeqID` 的生命周期更长，
   > 当其所属的 Note 被删除后，它的 `Note.id` 被回收/替换，但 `SeqID` 变成墓碑继续留在 Timeline 上，
   > 锚在其上的 Intervention 不会因为 ID 回收而失效。
+  >
+  > 此外，SeqID 只是稳定身份和分配顺序，在乐谱的顺序只能由 Timeline 链表决定。
 
   ## 用途
 
@@ -22,14 +24,4 @@ defmodule Zongzi.Timeline.SeqID do
 
   @typedoc "SeqID is a monotonically increasing positive integer."
   @type t :: pos_integer()
-
-  @doc """
-  Compare the order of two SeqIDs.
-
-  Return `:lt` | `:eq` | `:gt` .
-  """
-  @spec compare(t(), t()) :: :lt | :eq | :gt
-  def compare(a, b) when a < b, do: :lt
-  def compare(a, b) when a > b, do: :gt
-  def compare(_a, _b), do: :eq
 end

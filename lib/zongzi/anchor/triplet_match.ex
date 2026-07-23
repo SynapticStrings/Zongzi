@@ -19,17 +19,17 @@ defmodule Zongzi.Anchor.TripletMatch do
   @spec match(Intervention.t(), Timeline.t()) ::
           {:active, pos_integer(), triplet()}
           | {:tombstone, :merge | :delete}
-          | {:tombstone, :delete, SeqID.t() | nil, SeqID.t() | nil}
+          | {:tombstone, :delete}
   def match(%Intervention{anchor: {old_prev, current, old_next}}, %Timeline{} = timeline) do
     case Query.status(timeline, current) do
       :missing ->
-        {:tombstone, :delete, old_prev, old_next}
+        {:tombstone, :delete}
 
       :merge_tombstone ->
         {:tombstone, :merge}
 
       :delete_tombstone ->
-        {:tombstone, :delete, old_prev, old_next}
+        {:tombstone, :delete}
 
       :active ->
         nb = Query.neighborhood(timeline, current, active_only: false, count: 1)

@@ -77,7 +77,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
           {:conflict, :merged_away}
         end
 
-      {:tombstone, :delete, _left_leg, _right_leg} ->
+      {:tombstone, :delete} ->
         do_relocate(int, timeline, current, opts.orphan_direction)
     end
   end

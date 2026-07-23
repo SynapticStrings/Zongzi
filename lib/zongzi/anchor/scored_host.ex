@@ -75,7 +75,7 @@ defmodule Zongzi.Anchor.ScoredHost do
           {:conflict, :merged_away}
         end
 
-      {:tombstone, :delete, _left_leg, _right_leg} ->
+      {:tombstone, :delete} ->
         do_scored_relocate(int, timeline, current, ctx, opts)
     end
   end
