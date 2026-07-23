@@ -187,10 +187,7 @@ defmodule Zongzi.Timeline do
   @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()} | {:error, term()}
   def insert_note(%__MODULE__{} = timeline, %Note{} = note) do
     with {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
-      {head, tail, nodes} =
-        Link.link_tail({timeline.head, timeline.tail, timeline.nodes}, seq_id)
-
-      {:ok, %{timeline | head: head, tail: tail, nodes: nodes}, note}
+      {:ok, unlink(timeline, &Link.link_tail(&1, seq_id)), note}
     end
   end
 
@@ -199,10 +196,7 @@ defmodule Zongzi.Timeline do
   def insert_note_before(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
     with :ok <- assert_has_node(timeline, target_seq),
          {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
-      {head, tail, nodes} =
-        Link.link_before({timeline.head, timeline.tail, timeline.nodes}, seq_id, target_seq)
-
-      {:ok, %{timeline | head: head, tail: tail, nodes: nodes}, note}
+      {:ok, unlink(timeline, &Link.link_before(&1, seq_id, target_seq)), note}
     end
   end
 
@@ -211,14 +205,7 @@ defmodule Zongzi.Timeline do
   def insert_note_after(%__MODULE__{} = timeline, %Note{} = note, target_seq) do
     with :ok <- assert_has_node(timeline, target_seq),
          {:ok, timeline, note, seq_id} <- update_timeline(timeline, note) do
-      {head, tail, nodes} =
-        Link.link_after(
-          {timeline.head, timeline.tail, timeline.nodes},
-          seq_id,
-          target_seq
-        )
-
-      {:ok, %{timeline | head: head, tail: tail, nodes: nodes}, note}
+      {:ok, unlink(timeline, &Link.link_after(&1, seq_id, target_seq)), note}
     end
   end
 
@@ -294,12 +281,12 @@ defmodule Zongzi.Timeline do
       else
         {head, tail, nodes} =
           Link.unlink({timeline.head, timeline.tail, timeline.nodes}, seq_id)
-
-        {head, tail, nodes} =
-          case where do
-            :before -> Link.link_before({head, tail, nodes}, seq_id, target_seq)
-            :after -> Link.link_after({head, tail, nodes}, seq_id, target_seq)
-          end
+          |> then(
+            &case where do
+              :before -> Link.link_before(&1, seq_id, target_seq)
+              :after -> Link.link_after(&1, seq_id, target_seq)
+            end
+          )
 
         {:ok, %{timeline | head: head, tail: tail, nodes: nodes}}
       end
@@ -494,6 +481,14 @@ defmodule Zongzi.Timeline do
       {:ok, {prev, _}} -> prev
       :error -> nil
     end
+  end
+
+  # ---- helpers ----
+
+  defp unlink(%__MODULE__{} = timeline, op_fn) do
+    {hd, tl, nodes} = op_fn.({timeline.head, timeline.tail, timeline.nodes})
+
+    %{timeline | head: hd, tail: tl, nodes: nodes}
   end
 
   defp assert_has_node(timeline, seq_id) do
