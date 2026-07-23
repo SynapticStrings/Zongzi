@@ -6,6 +6,7 @@ defmodule Zongzi.TimelineTest do
   alias Zongzi.Timeline
 
   doctest Zongzi.Timeline, import: true
+  doctest Zongzi.Timeline.Link
 
   # ---- helpers ----
 

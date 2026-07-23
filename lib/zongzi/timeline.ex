@@ -14,29 +14,30 @@ defmodule Zongzi.Timeline do
   - `seq_map` — seq_id → note_id 的反向查找
   - `tombstones` — 已删除的 seq_id，保留在链表中以维护邻接稳定性
 
-  ## 更新记录的操作
+  ## Record Score Update
+
+  For single note:
 
   - 在末尾添加音符
   - 在序列的特定位置添加音符（基于目前存在的音符序列的位置）
   - 切开/合并特定音符
   - 可能需要变更音符排序的拖拽音符
-  - 删除音符
+  - Delete note
 
-  以上操作均指单个音符。
+  For batch operations:
 
-  针对批量操作：
-
-  - 批量在末尾添加
+  - Append notes one time
   - 批量在某音符前/后插入一堆音符
-  - 批量删除一堆音符
+  - Delete several notes
 
-  ## 查询原语
+  ## Query Primitives
 
-  参见 `Zongzi.Timeline.Query` 模块。
+  See `Zongzi.Timeline.Query`.
 
   ## Caller Related
 
   Timeline not contain Note.
+
   写操作后 Caller 侧 note 快照（notes_by_seq）的同步需要单独实现。
   """
 
@@ -170,7 +171,7 @@ defmodule Zongzi.Timeline do
   @doc "Validate Timeline."
   defdelegate validate(timeline), to: Validator
 
-  # ---- 写操作（单个音符的 CRUD） ----
+  # ---- CRUD(Single Note) ----
 
   @doc "将音符追加到 Timeline 末尾。"
   @spec insert_note(t(), Note.t()) :: {:ok, t(), Note.t()} | {:error, term()}
@@ -198,8 +199,7 @@ defmodule Zongzi.Timeline do
     end
   end
 
-  # 不放后面了，就前面几个函数会被用到
-  # 确保永远单调递增
+  # Ensure conuter monotonically increasing fowever
   defp update_timeline(%__MODULE__{} = timeline, %Note{} = note) do
     cond do
       is_nil(note.seq_id) ->
@@ -281,7 +281,7 @@ defmodule Zongzi.Timeline do
   end
 
   @doc """
-  合并两个音符。内部调用 `Note.merge/4`。
+  Merge two notes(timeline level), invoke `Zongzi.Score.Note.merge/4` inside.
 
   seq_id_2 变墓碑，seq_id_1 保留并指向 merged_note_id。
   """
@@ -325,7 +325,7 @@ defmodule Zongzi.Timeline do
 
   # ---- 批量操作以及该用到的 ----
 
-  # 批量增加音符的 SeqID
+  # generate SeqID(batch)
   defp generate_batch(timeline, 0), do: {[], timeline}
 
   defp generate_batch(%__MODULE__{} = timeline, count) do
@@ -351,10 +351,10 @@ defmodule Zongzi.Timeline do
         Enum.zip(notes, seq_ids)
         |> Enum.map(fn {note, sid} -> %{note | seq_id: sid} end)
 
-      # 构造子链 nodes
+      # Construct nodes in sub chain
       sub_nodes = Link.build_sub_chain(seq_ids)
 
-      # 加入 seq_map
+      # Append seq_map
       seq_map =
         Enum.reduce(notes_with_seq, timeline.seq_map, fn n, acc ->
           Map.put(acc, n.seq_id, n.id)
@@ -412,7 +412,7 @@ defmodule Zongzi.Timeline do
     end
   end
 
-  # ---- 内存回收 ----
+  # ---- Tombstones Collect ----
 
   @doc """
   回收无 intervention 引用的墓碑，将其从链表中移除。
@@ -422,7 +422,7 @@ defmodule Zongzi.Timeline do
 
   extra_refs 是为了使 undo 可用。
   """
-  @spec gc(t(), [Zongzi.Intervention.t()]) :: {:ok, t()}
+  @spec gc(t(), [Zongzi.Intervention.t()], [Zongzi.Intervention.t()]) :: {:ok, t()}
   def gc(%__MODULE__{} = timeline, interventions, extra_refs \\ []) do
     live_refs =
       interventions
@@ -450,7 +450,8 @@ defmodule Zongzi.Timeline do
     {:ok, timeline}
   end
 
-  # ---- Query 用遍历原语 ----
+  # ---- Enumerable primitives for Query ----
+  # 和 Enum 协议适配有什么区别？
 
   @doc "获得给定时间线下某 SeqID 的下一个 SeqID 。"
   @spec node_next(t(), SeqID.t()) :: SeqID.t() | nil

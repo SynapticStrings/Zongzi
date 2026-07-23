@@ -1,8 +1,8 @@
 defmodule Zongzi.Timeline.Neighborhood do
   @moduledoc """
-  以 focus 为中心的局部序列视图。
+  Local sequences view 以 focus 为中心
 
-  `left` / `right` 的列表排序表示由近到远。
+  List order in `left` / `right` prensents 由近到远
   """
 
   alias Zongzi.Timeline.SeqID

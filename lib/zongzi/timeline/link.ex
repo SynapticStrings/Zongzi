@@ -1,8 +1,8 @@
 defmodule Zongzi.Timeline.Link do
   @moduledoc false
-  # 双向链表力学原语 —— 纯函数，不碰 Note，不依赖 Timeline struct。
+  # Link primitives with pure functions, no timeline struct
   #
-  # 全部操作使用 `{head, tail, nodes}` 三元组，编译期零依赖 Timeline。
+  # All operations within `{head, tail, nodes}` triple
 
   alias Zongzi.Timeline.SeqID
 
@@ -14,7 +14,7 @@ defmodule Zongzi.Timeline.Link do
 
   # ---- 链入 ----
 
-  @doc "追加到链表末尾。"
+  @doc "Append to link tail"
   def link_tail({nil, nil, nodes}, seq_id) do
     {seq_id, seq_id, Map.put(nodes, seq_id, {nil, nil})}
   end
@@ -92,7 +92,7 @@ defmodule Zongzi.Timeline.Link do
 
   ## Examples
 
-      iex> Link.build_sub_chain([1, 2, 3])
+      iex> Zongzi.Timeline.Link.build_sub_chain([1, 2, 3])
       %{1 => {nil, 2}, 2 => {1, 3}, 3 => {2, nil}}
   """
   def build_sub_chain([]), do: %{}

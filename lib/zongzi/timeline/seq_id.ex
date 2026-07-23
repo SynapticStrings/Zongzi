@@ -15,11 +15,11 @@ defmodule Zongzi.Timeline.SeqID do
   >
   > 此外，SeqID 只是稳定身份和分配顺序，在乐谱的顺序只能由 Timeline 链表决定。
 
-  ## 用途
+  ## Usage
 
-  - Timeline 双向链表的节点标识
+  - Identify for nodes in `Zongzi.Timeline`
   - Intervention anchor 的锚定目标
-  - Note 删除后的墓碑标记
+  - Tombstone for notes were deleted
   """
 
   @typedoc "SeqID is a monotonically increasing positive integer."
