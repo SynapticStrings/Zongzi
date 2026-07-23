@@ -114,32 +114,21 @@ defmodule Zongzi.Timeline do
           optional(:next_seq) => pos_integer()
         }) :: {:ok, t()}
   def build(%{track_id: track_id, note_order: order} = attrs) do
-    seq_map = Map.get(attrs, :seq_map, %{})
-    tombstones = attrs |> Map.get(:tombstones, []) |> MapSet.new()
-    next_seq = Map.get(attrs, :next_seq, default_next(order))
-
     init_tl = %__MODULE__{
       track_id: track_id,
-      seq_map: seq_map,
-      tombstones: tombstones,
-      next_seq: next_seq
+      seq_map: Map.get(attrs, :seq_map, %{}),
+      tombstones: Map.get(attrs, :tombstones, []) |> MapSet.new(),
+      next_seq: Map.get(attrs, :next_seq, default_next(order))
     }
 
     {:ok,
-     Enum.reduce(order, init_tl, fn seq_id, timeline ->
-       {head, tail, nodes} =
-         Link.link_tail({timeline.head, timeline.tail, timeline.nodes}, seq_id)
-
-       %{timeline | head: head, tail: tail, nodes: nodes}
-     end)}
+     Enum.reduce(order, init_tl, fn seq_id, tl -> unlink(tl, &Link.link_tail(&1, seq_id)) end)}
   end
 
   defp default_next([]), do: 1
   defp default_next(order), do: Enum.max(order) + 1
 
-  @doc """
-  返回完整 seq_id 列表（含墓碑）。
-  """
+  @doc "返回完整 seq_id 列表（含墓碑）。"
   @spec to_list(t()) :: [SeqID.t()]
   def to_list(%__MODULE__{head: nil}), do: []
 
@@ -266,9 +255,7 @@ defmodule Zongzi.Timeline do
     end
   end
 
-  @doc """
-  拖拽 seq 到 target_seq 的 before/after 位置。
-  """
+  @doc "拖拽 seq 到 target_seq 的 before/after 位置。"
   @spec move_note(t(), selected_seq_id :: SeqID.t(), target_seq_id :: SeqID.t(), :before | :after) ::
           {:ok, t()} | {:error, term()}
   def move_note(%__MODULE__{} = timeline, seq_id, target_seq, where)
@@ -279,16 +266,16 @@ defmodule Zongzi.Timeline do
       if seq_id == target_seq do
         {:ok, timeline}
       else
-        {head, tail, nodes} =
-          Link.unlink({timeline.head, timeline.tail, timeline.nodes}, seq_id)
-          |> then(
-            &case where do
-              :before -> Link.link_before(&1, seq_id, target_seq)
-              :after -> Link.link_after(&1, seq_id, target_seq)
-            end
-          )
-
-        {:ok, %{timeline | head: head, tail: tail, nodes: nodes}}
+        {:ok,
+         unlink(timeline, fn link_tuple ->
+           Link.unlink(link_tuple, seq_id)
+           |> then(
+             &case where do
+               :before -> Link.link_before(&1, seq_id, target_seq)
+               :after -> Link.link_after(&1, seq_id, target_seq)
+             end
+           )
+         end)}
       end
     end
   end
@@ -500,14 +487,68 @@ defmodule Zongzi.Timeline do
   end
 end
 
-# 只要链表元素对上就行，先不用管活不活的
-# 大不了过层 Enum.filter/2
-# defimpl Enumerable, for: Zongzi.Timeline do
-#   def count(%Zongzi.Timeline{seq_map: seq_map}) do
-#     {:ok, map_size(seq_map)}
-#   end
-#
-#   def member?(%Zongzi.Timeline{}, note_seq_id) when is_integer(note_seq_id) and note_seq_id > 0 do
-#     # ...
-#   end
-# end
+defimpl Enumerable, for: Zongzi.Timeline do
+  def count(%Zongzi.Timeline{seq_map: seq_map, tombstones: tombstones}) do
+    live = Enum.reduce(tombstones, map_size(seq_map), fn sid, acc ->
+      if Map.has_key?(seq_map, sid), do: acc - 1, else: acc
+    end)
+    {:ok, live}
+  end
+
+  def member?(%Zongzi.Timeline{nodes: nodes, tombstones: tombstones}, seq_id) do
+    {:ok, Map.has_key?(nodes, seq_id) and not MapSet.member?(tombstones, seq_id)}
+  end
+
+  def reduce(%Zongzi.Timeline{head: nil}, {:cont, acc}, _fun), do: {:done, acc}
+  def reduce(%Zongzi.Timeline{head: nil}, {:halt, acc}, _fun), do: {:halted, acc}
+  def reduce(%Zongzi.Timeline{head: nil}, {:suspend, acc}, _fun),
+    do: {:suspended, acc, &reduce_done/1}
+
+  def reduce(%Zongzi.Timeline{} = tl, acc, fun) do
+    do_reduce(tl.nodes, tl.head, tl.tombstones, acc, fun)
+  end
+
+  defp do_reduce(_nodes, nil, _ts, {:cont, acc}, _fun), do: {:done, acc}
+  defp do_reduce(_nodes, nil, _ts, {:halt, acc}, _fun), do: {:halted, acc}
+  defp do_reduce(_nodes, nil, _ts, {:suspend, acc}, _fun),
+    do: {:suspended, acc, &reduce_done/1}
+
+  defp do_reduce(_nodes, _seq, _ts, {:done, acc}, _fun), do: {:done, acc}
+
+  defp do_reduce(nodes, seq, ts, {:suspend, acc}, fun) do
+    {:suspended, acc, &do_reduce(nodes, seq, ts, &1, fun)}
+  end
+
+  defp do_reduce(_nodes, _seq, _ts, {:halt, acc}, _fun), do: {:halted, acc}
+
+  defp do_reduce(nodes, seq, ts, {:cont, acc}, fun) do
+    {_, nxt} = Map.fetch!(nodes, seq)
+
+    if MapSet.member?(ts, seq) do
+      do_reduce(nodes, nxt, ts, {:cont, acc}, fun)
+    else
+      case fun.(seq, acc) do
+        {:cont, acc2} -> do_reduce(nodes, nxt, ts, {:cont, acc2}, fun)
+        {:halt, acc2} -> {:halted, acc2}
+        {:suspend, acc2} -> {:suspended, acc2, &do_reduce(nodes, nxt, ts, &1, fun)}
+      end
+    end
+  end
+
+  defp reduce_done({:cont, acc}), do: {:done, acc}
+  defp reduce_done({:halt, acc}), do: {:halted, acc}
+  defp reduce_done({:suspend, acc}), do: {:suspended, acc, &reduce_done/1}
+
+  def slice(%Zongzi.Timeline{} = tl) do
+    {:ok, map_size(tl.seq_map), &do_slice(tl, &1, &2, &3)}
+  end
+
+  defp do_slice(tl, start, length, 1) do
+    tl
+    |> Zongzi.Timeline.to_list()
+    |> Enum.reject(&MapSet.member?(tl.tombstones, &1))
+    |> Enum.slice(start, length)
+  end
+
+  defp do_slice(_tl, _start, _length, _step), do: []
+end
