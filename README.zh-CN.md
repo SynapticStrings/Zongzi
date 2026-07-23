@@ -4,7 +4,7 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-Zongzi 是：
+Zongzi 不是墨西哥粽子，是：
 
 1. 提供构建 SVS 编辑器的函数式组件与规范
 2. 为 BEAM 生态的不同 SVS 处理组件提供统一适配

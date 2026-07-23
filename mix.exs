@@ -1,15 +1,22 @@
 defmodule Zongzi.MixProject do
   use Mix.Project
 
+  @version "0.3.0"
+  @description "A protocol and BEAM implementation" <>
+    "for preserves user edits across upstream regeneration cycles" <>
+    "in singing synthesis application."
+
   def project do
     [
       app: :zongzi,
-      version: "0.3.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       aliases: [precommit: ["compile --warnings-as-errors", "format", "test"]],
       deps: deps(),
-      docs: docs()
+      docs: docs(),
+      package: package(),
+      description: @description
     ]
   end
 
@@ -22,6 +29,16 @@ defmodule Zongzi.MixProject do
       {:ex_doc, "~> 0.40", only: :dev, runtime: false, warn_if_outdated: true}
     ]
   end
+
+  defp package do
+    [
+      name: :zongzi,
+      files: ~w(README* CHANGELOG.md lib mix.exs LICENSE),
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/SynapticStrings/Zongzi"}
+    ]
+  end
+  # ---- Docs ----
 
   @extras_docs [
     "docs/en/guide/Overview.md",

@@ -4,7 +4,7 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-Zongzi is:
+Zongzi is not 🫔, Zongzi is:
 
 1. Providing functional components and specifications for building SVS(Singing Voice Synthesis) editors
 2. Providing unified adaptation for different SVS processing components in the BEAM ecosystem
