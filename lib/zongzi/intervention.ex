@@ -43,12 +43,19 @@ defmodule Zongzi.Intervention do
   Windowing 侧在切窗时用 `scope_ctx` 现场调用 `declaration.scope(int, scope_ctx)`。
   """
 
+  @typedoc """
+  和干预数据相绑定的快照。
+
+  参见 `c:Zongzi.Intervention.Declaration.snapshot/2` 。
+  """
+  @type snapshot :: term()
+
   @type t :: %__MODULE__{
           id: term(),
           channel: atom(),
           anchor: term(),
           payload: term(),
-          snapshot: term(),
+          snapshot: snapshot(),
           strategy: {module(), options :: term()} | nil,
           declaration: module()
         }

@@ -13,11 +13,12 @@ defmodule Zongzi.Engine do
 
   ## check vs render
 
-  | | check | render |
-  |---|---|---|
+  |      | check | render |
+  |------|---|---|
   | 成本 | 轻 | 重 |
-  | 产出 | check_artifact：resolve、semantic conflicts、params 约束 | render_artifact：终态声学/全量特征等 |
-  | 必选 | **是** `check/1` | 否（`@optional_callbacks`） |
+  | 产出 | `t:check_artifact` | `t:render_artifact` |
+  | 必选 | 是 `check/1` | 否（`@optional_callbacks`） |
+  | 入参 | `request()` | `checked_request()` — **不是裸 request** |
 
   ## Request
 
@@ -37,7 +38,12 @@ defmodule Zongzi.Engine do
       rebase_all → Strategy.window → [Segment]
         → check(%{segments: ..., interventions: ..., params: ...})
         →（用户决议）
-        → render(%{segments: ..., ...})   # 可选
+        → render(%{request: ..., artifact: ..., fingerprint: ...})   # 可选
+
+  `check` 产出 `{:ok, check_artifact}` 后，由 Caller 与原始 `request` 及
+  `fingerprint`（内容哈希 / revision 戳）**显式打包**为 `checked_request`
+  再传给 `render`。`render` 实现**必须**校验指纹仍匹配——绝不用变异后的
+  项目状态渲染旧 artifact。
   """
 
   alias Zongzi.Windowing.Segment
@@ -60,6 +66,18 @@ defmodule Zongzi.Engine do
           optional(any()) => any()
         }
 
+  @typedoc """
+  经 `check/1` 验证后的 request，显式捆上 artifact 与指纹。
+
+  这消除了一条隐式缝：`render` 实现直接拿到「这是哪次 check 的产物」，
+  不需要 Caller 暗中传递、引擎猜对应关系。
+  """
+  @type checked_request :: %{
+          required(:request) => request(),
+          required(:artifact) => check_artifact(),
+          required(:fingerprint) => term()
+        }
+
   @doc """
   语义与参数检查（轻）。
 
@@ -69,9 +87,16 @@ defmodule Zongzi.Engine do
   @callback check(request()) :: {:ok, check_artifact()} | {:error, term()}
 
   @doc """
-  重渲染（可选）。消费同一套 `segments`（及已决议的 interventions）。
+  重渲染（可选）。
+
+  消费 `checked_request`——即经 `check/1` 验证后的 request + artifact +
+  fingerprint。实现**必须**校验 `fingerprint` 与当前状态一致；若项目已在
+  check 后被其他编辑修改，应拒绝而非静默产出过期音频。
+
+  返回 `{:async, ref}` 时，Caller 负责管理 result delivery protocol
+  （progress/ok/error/cancel），并拒收 fingerprint 已失效的迟到结果。
   """
-  @callback render(request()) ::
+  @callback render(checked_request()) ::
               {:ok, render_artifact()} | {:error, term()} | {:async, ref :: term()}
 
   @optional_callbacks [render: 1]
