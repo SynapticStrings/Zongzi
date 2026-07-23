@@ -1,18 +1,18 @@
 defmodule Zongzi.Score.RecordMap do
   @moduledoc """
-  通用的 Record 编译与二分查找引擎。
+  Generic Record compiler and binary search engine.
 
-  将一系列 positioned Records 编译为左闭右开的区间元组，
-  提供二分查找能力。
+  Compiles a series of positioned Records into a left-closed, right-open interval tuple
+  and provides binary search over it.
 
-  ## 编译后事件
+  ## Compiled events
 
-  每个 compiled_event 必须包含 `start_pos` 和 `end_pos` 字段，
-  其余字段由 `reducer` 自由填充。
+  Each compiled event must include `start_pos` and `end_pos` fields.
+  Remaining fields are freely populated by the `reducer`.
 
-  ## 示例
+  ## Example
 
-      # TempoMap 的 compile
+      # TempoMap's compile
       reducer = fn start_tick, end_tick, event, current_sec ->
         with {:ok, strategy} <- Tempo.build_segment_from_event(...) do
           duration = Tempo.duration_sec(strategy)
@@ -27,9 +27,9 @@ defmodule Zongzi.Score.RecordMap do
   alias Zongzi.Score.Record
 
   @typedoc """
-  编译后的事件。
+  A compiled event.
 
-  必须包含 `start_pos` 和 `end_pos` 用于二分查找。
+  Must include `start_pos` and `end_pos` for binary search.
   """
   @type compiled_event :: %{
           :start_pos => Record.position(),
@@ -40,20 +40,20 @@ defmodule Zongzi.Score.RecordMap do
   @type t :: tuple()
 
   @typedoc """
-  Reducer 函数签名。
+  Reducer function signature.
 
-  接收当前区间的起始位置、结束位置、Record 值和累积状态，
-  返回 `{:ok, compiled_event, new_acc}` 或 `{:error, reason}`。
+  Receives the interval's start position, end position, Record value, and accumulated state.
+  Returns `{:ok, compiled_event, new_acc}` or `{:error, reason}`.
   """
   @type reducer :: (Record.position(), Record.end_position(), Record.value(), term() ->
                       {:ok, compiled_event(), term()} | {:error, term()})
 
-  # ---- 编译 ----
+  # ---- Compiling ----
 
   @doc """
-  编译 Record 列表为可二分查找的元组。
+  Compiles a list of Records into a binary-searchable tuple.
 
-  返回 `{:ok, compiled_tuple}` 或 `{:error, reason}`。
+  Returns `{:ok, compiled_tuple}` or `{:error, reason}`.
   """
   @spec compile(Record.records(), reducer(), term()) :: {:ok, t()} | {:error, term()}
   def compile(records_arg, reducer, initial_acc)
@@ -81,27 +81,27 @@ defmodule Zongzi.Score.RecordMap do
     end
   end
 
-  # ---- 二分查找 ----
+  # ---- Binary Search ----
 
   @doc """
-  在编译后的元组中查找包含 `target_pos` 的区间。
+  Finds the interval containing `target_pos` in the compiled tuple.
 
-  区间格式为左闭右开 `[start_pos, end_pos)`。
-  当 `target_pos` 超出所有区间时，返回最后一个区间。
+  Intervals are left-closed, right-open `[start_pos, end_pos)`.
+  When `target_pos` falls outside all intervals, returns the last interval.
   """
   @spec find_by_position(t(), Record.position()) :: compiled_event()
   def find_by_position(tuple, target_pos) do
     do_find(tuple, target_pos, 0, tuple_size(tuple) - 1)
   end
 
-  # ---- 内部函数 ----
+  # ---- Inner fuctions ----
 
-  # 最后一刻合法
+  # The final position is valid
   defp end_position_valid?(:open_end), do: :ok
   defp end_position_valid?(pos) when is_integer(pos) and pos >= 0, do: :ok
   defp end_position_valid?(pos), do: {:error, {:invalid_record_end_position, pos}}
 
-  # 所有事件以时间（正整数）开始
+  # All events must start at non-negative positions
   defp all_positions_numeric?(records) do
     case Enum.find(records, fn
            {pos, _v} -> not (is_integer(pos) and pos >= 0)
@@ -112,7 +112,7 @@ defmodule Zongzi.Score.RecordMap do
     end
   end
 
-  # 没有一刻对应着多个事件的情况
+  # No two events at the same position
   defp no_duplicate_positions?(sorted_records) do
     has_dup? =
       sorted_records
@@ -122,15 +122,15 @@ defmodule Zongzi.Score.RecordMap do
     if has_dup?, do: {:error, :duplicate_record_positions}, else: :ok
   end
 
-  # 看完屁股看身子，看完身子看脑袋
-  # 首个事件从 0 开始
+  # Validate: end positions, then body, then head
+  # First event must start at 0
   defp first_record_at_zero?([]), do: {:error, :empty_records}
   defp first_record_at_zero?([{0, _} | _]), do: :ok
 
   defp first_record_at_zero?([{pos, _v} | _rest]),
     do: {:error, {:first_record_must_start_at_zero, pos}}
 
-  # 范围本身合法
+  # The interval itself is valid
   defp range_valid?(start_pos, :open_end)
        when is_integer(start_pos) and start_pos >= 0,
        do: :ok
@@ -142,7 +142,7 @@ defmodule Zongzi.Score.RecordMap do
   defp range_valid?(start_pos, end_pos),
     do: {:error, {:invalid_record_range, start_pos, end_pos}}
 
-  # 递归编译：配对相邻 Record 形成区间
+  # Recursive compile: pair adjacent Records into intervals
   defp do_compile(
          [{start_pos, value}, {end_pos, _next_value} = next | rest],
          last_pos,
@@ -161,7 +161,7 @@ defmodule Zongzi.Score.RecordMap do
     end
   end
 
-  # 最后一个 Record：延伸到动态终点
+  # Last Record: extend to the dynamic end
   defp do_compile([{start_pos, value}], last_pos, acc_state, reducer, acc) do
     with :ok <- range_valid?(start_pos, last_pos),
          {:ok, payload, _new_acc} <- reducer.(start_pos, last_pos, value, acc_state) do
@@ -174,7 +174,7 @@ defmodule Zongzi.Score.RecordMap do
     end
   end
 
-  # 二分搜索：在区间元组中定位 target_pos
+  # Binary search: locate target_pos in the interval tuple
   defp do_find(tuple, target_pos, low, high) when low <= high do
     mid = div(low + high, 2)
     seg = elem(tuple, mid)
@@ -191,7 +191,7 @@ defmodule Zongzi.Score.RecordMap do
     end
   end
 
-  # Fallback：超出范围时返回最后一个区间
+  # Fallback: out of range, return the last interval
   defp do_find(tuple, _target_pos, _low, _high),
     do: elem(tuple, tuple_size(tuple) - 1)
 end

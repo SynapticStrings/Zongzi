@@ -6,10 +6,13 @@ defmodule Zongzi.Score.Note do
   alias Zongzi.Score.Tick
   alias Zongzi.Timeline.SeqID
 
-  # 直接在这里声明好啦
-  # metadata 就是 %{作用域 => 内容}
-  # 限定死本身就得是可被序列化的
-  # 列表、字典、字符串、数字，nil
+  @typedoc """
+  metadata is scope => inner.
+
+  It must be serializable.
+
+  list, doct, string, number, nil, etc.
+  """
   @type metadata :: %{binary() => term()}
 
   use Model,
@@ -25,7 +28,6 @@ defmodule Zongzi.Score.Note do
     ],
     id_prefix: "Note_"
 
-  # Yeah, you need write type by yourself
   @type t :: %__MODULE__{
           id: ID.t(),
           start_tick: Tick.t(),
@@ -40,7 +42,7 @@ defmodule Zongzi.Score.Note do
   # ---- Constructor ----
 
   @doc """
-  创建新音符。
+  Create new note.
 
   `seq_id` 默认由下游 `Timeline.insert_note/2` 分配，
   反序列化时可以显式传入已有的 `:seq_id`。
@@ -60,8 +62,8 @@ defmodule Zongzi.Score.Note do
           {:error, {:missing_id, "Note_"}}
 
         {:ok, _id} ->
-          # seq_id 默认 nil（由 Timeline.insert_note 分配）。
-          # 反序列化时 attrs 里显式传 seq_id: <int> 即可。
+          # seq_id defaults to nil (assigned by Timeline.insert_note).
+          # When deserializing, pass seq_id: <int> in attrs.
           normalized
           |> then(&struct!(%__MODULE__{}, &1))
           |> validate()
@@ -72,13 +74,12 @@ defmodule Zongzi.Score.Note do
   # ---- Validator ----
 
   @doc """
-  Validate note.
+  Validates a note.
 
-  有以下情况不合法：
+  The following are invalid:
 
-  * 音符的开始时刻在 0 之前
-  * 音符的开始时刻在结束时刻之前
-  * 歌词是 nil 或字符串外的其他类型
+  * `start_tick` or `duration_tick` is negative
+  * `lyric` is neither `nil` nor a string
   """
   @impl true
   def validate(%__MODULE__{start_tick: start_tick}) when start_tick < 0,
@@ -95,16 +96,16 @@ defmodule Zongzi.Score.Note do
   # ---- Business functions ----
 
   @doc """
-  拖拽音符到新的高度与 start_tick 。
+  Drags a note to a new key and/or start tick.
 
-  进实现音符层面的修改，其他约束（不得与现有音符重叠）在下游实现。
+  Only modifies the note itself; overlap constraints are enforced downstream.
 
-  ## 选项
+  ## Options
 
-  允许 Map 或关键字，但仅允许是以下两个键中的一个或两个。
+  Accepts a map or keyword list. Only the following keys are recognised:
 
-  - `:start_tick` 音符将要被拖拽到的新起始时刻
-  - `:key` 音符将要被拖拽到的新音高
+  - `:start_tick` — new start tick
+  - `:key` — new pitch
   """
   @spec drag_note(
           t(),
@@ -136,9 +137,9 @@ defmodule Zongzi.Score.Note do
   end
 
   @doc """
-  Modify annotation.
+  Updates the note's annotation.
 
-  需要注意的是，标注是 UI 的标注，引擎以及插件不会读取
+  Annotations are UI-only; the engine and plugins do not read them.
   """
   @spec update_annotation(t(), String.t() | nil) :: {:ok, t()} | {:error, term()}
   def update_annotation(note, new_annotation) do
@@ -151,17 +152,17 @@ defmodule Zongzi.Score.Note do
 
   # ---- Metadata Operations ----
 
-  @doc "更新附属的元数据，通过合并并入 current_metadata"
+  @doc "Merges new metadata into the note's current metadata."
   @spec update_metadata(t(), map()) :: {:ok, t()} | {:error, term()}
   def update_metadata(note, new_metadata) when is_map(new_metadata) do
     update(note, metadata: Map.merge(note.metadata, new_metadata))
   end
 
   @doc """
-  读取元数据。
+  Fetches metadata.
 
-  * get_metadata/1 返回全部元数据
-  * get_metadata/2 如果没有对应的键会返回 `{:error, {:key_not_found, target_key}}`
+  * `get_metadata/1` returns all metadata.
+  * `get_metadata/2` returns `{:error, {:key_not_found, key}}` when the key is absent.
   """
   @spec get_metadata(t()) :: {:ok, metadata()}
   def get_metadata(note), do: {:ok, note.metadata}
@@ -177,9 +178,9 @@ defmodule Zongzi.Score.Note do
   end
 
   @doc """
-  移除元数据。
+  Removes metadata.
 
-  一般用于插件生命周期结束或序列化。
+  Typically used at the end of a plugin lifecycle or before serialization.
   """
   @spec remove_metadata(t(), :all | [binary()]) :: {:ok, t()}
   def remove_metadata(note, :all), do: update(note, metadata: %{})
@@ -190,12 +191,12 @@ defmodule Zongzi.Score.Note do
   # ---- Split and Merge Note ----
 
   @doc """
-  在指定绝对 tick 位置切开音符。
+  Splits a note at an absolute tick position.
 
-  返回 `{:ok, note_before, note_after}`，后面的音符为新 ID。
-  `split_tick` 必须在音符内部（严格大于 start_tick，严格小于 end_tick）。
+  Returns `{:ok, note_before, note_after}`. The trailing note gets a new ID.
+  `split_tick` must fall strictly inside the note (`start_tick < split_tick < end_tick`).
 
-  `attrs` 可选，用于覆盖切分后后部音符的字段（如不同的歌词）。
+  `attrs` optionally overrides fields on the trailing note (e.g. a different lyric).
   """
   @spec split(t(), Tick.t(), ID.t(t()), map() | keyword()) :: {:ok, t(), t()} | {:error, term()}
   def split(note, split_tick, new_id, attrs \\ []) do
@@ -214,7 +215,7 @@ defmodule Zongzi.Score.Note do
         extra_attrs =
           attrs
           |> Enum.into(%{})
-          # 确保 ID 以及 tick 得到保留
+          # Ensure NoteID and tick exist
           |> Map.take([:key, :lyric, :annotation, :metadata])
 
         after_attrs =
@@ -239,22 +240,22 @@ defmodule Zongzi.Score.Note do
   end
 
   @doc """
-  合并两个音符。
+  Merges two notes.
 
-  `merged_id` 显式注入——不由 Note 内部生成。
+  `merged_id` is injected by the caller — Note does not generate IDs.
 
-  ## 选项
+  ## Options
 
-  - `:gap_tolerance` — 允许的音符间最大间隙（tick），默认 0（必须相邻或重叠）
-  - `:lyric_merger` — 可插拔的歌词拼接函数（fn/2 -> ok or error），默认两者均有值时直接连接，标注取第一个非 nil 值
-  - `:annotation_merger` — 可插拔的注释合并函数（fn/2 ok or error）
+  - `:gap_tolerance` — maximum allowed gap between notes in ticks (default 0: must be adjacent or overlapping)
+  - `:lyric_merger` — pluggable lyric concatenation function (`fn/2 -> ok | error`); defaults to concatenating when both are non-nil
+  - `:annotation_merger` — pluggable annotation merge function (`fn/2 -> ok | error`); defaults to the first non-nil value
 
-  ## 行为
+  ## Behaviour
 
-  - 两个音符必须是同一音高（通过 Key.to_midi/1 比较）
-  - 必须重叠，或间隙 ≤ `gap_tolerance`
-  - 返回 `{:ok, merged_note}`，生成新 ID
-  - 合并后标注取第一个非 nil 值
+  - Both notes must share the same pitch (compared via `Key.to_midi/1`)
+  - Must overlap, or gap ≤ `gap_tolerance`
+  - Returns `{:ok, merged_note}` with the given `merged_id`
+  - Merged annotation takes the first non-nil value
   """
   @spec merge(t(), t(), ID.t(t()), keyword()) :: {:ok, t()} | {:error, term()}
   def merge(note1, note2, merged_id, opts \\ []) do
@@ -270,12 +271,10 @@ defmodule Zongzi.Score.Note do
            is_nil(note1.lyric) -> note2.lyric
            is_nil(note2.lyric) -> note1.lyric
            note1.lyric == note2.lyric -> note1.lyric
-           # 考虑后者为连续的什么 -> 那就使用前者
            true -> note1.lyric <> note2.lyric
          end}
       end)
 
-    # 我懒得考虑什么复杂的了
     annotation_merger =
       Keyword.get(opts, :annotation_merger, fn note1, note2 ->
         {:ok, note1.annotation || note2.annotation}
@@ -296,7 +295,7 @@ defmodule Zongzi.Score.Note do
 
   # ---- Toolkit functions ----
 
-  # 执行合并
+  # Execute merge
   defp do_merge(note1, note1_end, note2, note2_end, merged_id, lyric_merger, annotation_merger) do
     start_tick = min(note1.start_tick, note2.start_tick)
     end_tick = max(note1_end, note2_end)

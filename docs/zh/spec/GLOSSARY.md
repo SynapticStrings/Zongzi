@@ -49,7 +49,7 @@
 | relocate | 重定位 | | decision 标签之一 |
 | split / merge | 拆分 / 合并 | | |
 | drag | 拖动 | | |
-| sentinel | 哨兵值 | | `:dynamic_tick` |
+| sentinel | 末端前哨 | | 时间线（不是音符邻接对象，是下游应用工程时间线）的动态末端；类比前哨淋巴结（sentinel node），标记已知领土边界 |
 | gc | 墓碑回收 | GC | Timeline.gc |
 | behaviour / callback | 行为 / 回调 | | |
 | domain object / value object | 域对象 / 值对象 | | Util.Model / Util.Object |

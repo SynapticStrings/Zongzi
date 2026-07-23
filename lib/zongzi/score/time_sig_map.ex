@@ -1,7 +1,8 @@
 defmodule Zongzi.Score.TimeSigMap do
   @moduledoc """
-  拍号变化事件的编译映射表。
-  内部委托 `RecordMap` 完成编译与基于 Bar 的二分查找。
+  Compiled time signature map from time signature change events.
+
+  Delegates to `RecordMap` for compilation and bar-based binary search.
   """
 
   alias Zongzi.Score.{TimeSig, RecordMap, Record, Tick}

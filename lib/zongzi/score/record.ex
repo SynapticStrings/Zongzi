@@ -11,33 +11,32 @@ defmodule Zongzi.Score.Record do
   alias Zongzi.Score.Tick
 
   @typedoc """
-  Record 的位置是从 0 开始的非负整数。
+  A record's position, a non-negative integer starting from 0.
 
-  对于 Tempo 表示 Tick 刻，对于 TimeSig 表示 Bar 小节号。
+  For Tempo this is a tick; for TimeSig this is a bar number.
   """
   @type position :: non_neg_integer()
 
   @typedoc """
-  用于表示乐谱末端边界。
+  Marks the end boundary of the score.
 
-  可能是已知的某个结果，也用于表示乐谱末端边界。
+  Either a known position or `:open_end` for an unbound end.
   """
   @type end_position :: position() | :open_end
 
   def open_end, do: :open_end
 
-  @typedoc "Payload contained with record"
+  @typedoc "Payload contained within a record."
   @type value :: term()
 
-  @typedoc "单个时间线的事件"
+  @typedoc "An event at a position."
   @type t :: {position(), value()}
 
   @typedoc """
-  List of records.
+  A list of records.
 
-  可以是有限列表，也可以带上一个动态终点 `{records, last}`。
-
-  当最后一个片段没有明确的结束位置时使用 `Tick.dynamic_tick()`。
+  May be a plain list or a pair `{records, last}` with a dynamic end.
+  Use `Tick.dynamic_tick()` for `last` when the final segment has no fixed end position.
   """
   @type records :: [t()] | {[t()], last :: Tick.t()}
 end

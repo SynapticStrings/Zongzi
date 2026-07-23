@@ -1,8 +1,8 @@
 defmodule Zongzi.Score.TempoMap do
   @moduledoc """
-  根据变化事件返回编译后的速度映射表。
+  Compiled tempo map from tempo change events.
 
-  内部委托 `RecordMap` 完成编译与基于 Tick 的二分查找。
+  Delegates to `RecordMap` for compilation and tick-based binary search.
   """
 
   alias Zongzi.{Score.Tempo, Score.Tick, Score.RecordMap, Score.Record}

@@ -1,35 +1,35 @@
 defmodule Zongzi.Score.Tempo do
   @moduledoc """
-  时长工具的入口。
+  Entry point for duration utilities.
   """
   alias Zongzi.Score.{Tick, Tempo}
 
-  # 为了使用其的 guards
+  # For guard macros
   import Tick
 
-  @typedoc "物理时间。"
+  @typedoc "Physical time in seconds."
   @type physical_time :: float()
 
   # ---- 速度变化事件 ----
 
   defmodule Event do
-    @moduledoc "速度变化事件"
+    @moduledoc "Tempo change event."
     @type context :: term()
     @type t :: %__MODULE__{module: module(), context: context()}
     defstruct [:module, :context]
   end
 
-  @typedoc "自第 x 刻开始，有了 XXX 速度段。"
+  @typedoc "A tempo segment starting at a given tick."
   @type tempo_event :: {Tick.numeric_tick(), Event.t()}
   @type tempo_events :: [tempo_event()] | {[tempo_event()], last :: Tick.t()}
 
   # ---- 速度片段 ----
 
   defmodule Segment do
-    @moduledoc "速度段的行为定义。"
-    @typedoc "实现速度段的结构体。"
+    @moduledoc "Behaviour definition for tempo segments."
+    @typedoc "A struct implementing a tempo segment."
     @type segment :: struct()
-    @typedoc "实际运行的时间长度。"
+    @typedoc "Actual duration in seconds."
     @type duration :: float() | :infinity
 
     @callback build_from_event(
@@ -51,7 +51,7 @@ defmodule Zongzi.Score.Tempo do
   end
 
   defmodule Step do
-    @moduledoc "最简单的速度段定义——阶梯。"
+    @moduledoc "The simplest tempo segment — constant BPM (step)."
     alias Zongzi.Score.Tempo.Segment
     use Segment
     defstruct [:start_tick, :end_tick, :bpm]
@@ -85,7 +85,7 @@ defmodule Zongzi.Score.Tempo do
   end
 
   defmodule Linear do
-    @moduledoc "线性渐变速度段。"
+    @moduledoc "Linear tempo ramp segment."
     alias Zongzi.Score.Tempo.Segment
     alias Zongzi.Score.Tick
     import Tick
@@ -152,11 +152,12 @@ defmodule Zongzi.Score.Tempo do
   end
 
   # defmodule Curve, do: nil
-  # 留个 stub 在这里
-  # 下游应用最好自己实现，用 NIF integrate 成小 step/linear 甚至是自己搞都可以
-  # （不要用 zongzi 内置的 Curve 工具，因为其依赖这里的时间线机制）
+  # Stub — downstream apps should implement their own
+  # (e.g. via NIF to integrate as small step/linear segments).
+  # Do not use Zongzi's built-in Curve module here —
+  # it depends on Zongzi's own timeline mechanism.
 
-  # ---- 一些工具函数 ----
+  # ---- Utility functions ----
 
   @spec build_segment_from_event(module(), Tick.t(), Tick.t(), any()) ::
           {:ok, Segment.segment()} | {:error, term()}
