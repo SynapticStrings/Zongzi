@@ -79,6 +79,7 @@ defmodule Zongzi.AnchorTest do
     test "delete 后 push 到活跃邻居 → survived" do
       {:ok, tl, {a, b, c, _d}, _notes} = build_timeline_4()
       int = build_intervention({a, b, c})
+      int = %{int | strategy: {Zongzi.Anchor.NoteTriplet, %{orphan_direction: :next}}}
       {:ok, tl} = Timeline.delete_note(tl, b)
       result = Anchor.rebase_all([int], tl)
       assert length(result.survived) == 1
@@ -109,12 +110,12 @@ defmodule Zongzi.AnchorTest do
       assert [{^int, :merged_away}] = result.conflicts
     end
 
-    test "orphan no neighbor → adjacency_lost" do
+    test "orphan no neighbor → relocate_forbidden" do
       {:ok, tl, {a, _b, _c, _d}, _notes} = build_timeline_4()
       int = build_intervention({a, 99999, nil})
       result = Anchor.rebase_all([int], tl)
       assert result.survived == []
-      assert [{^int, :adjacency_lost}] = result.conflicts
+      assert [{^int, :relocate_forbidden}] = result.conflicts
     end
   end
 
@@ -142,18 +143,18 @@ defmodule Zongzi.AnchorTest do
       {:ok, tl, {a, b, c, d}, _notes} = build_timeline_4()
       int1 = build_intervention({a, b, c}, "int1")
       int2 = build_intervention({b, c, d}, "int2")
-      # Delete both b and c — both should relocate via NoteTriplet.nearest_active
+      # Delete both b and c — with default orphan_direction: :never they conflict
       {:ok, tl} = Timeline.delete_note(tl, b)
       {:ok, tl} = Timeline.delete_note(tl, c)
       result = Anchor.rebase_all([int1, int2], tl)
-      assert length(result.survived) == 2
-      assert result.conflicts == []
+      assert result.survived == []
+      assert length(result.conflicts) == 2
     end
 
     test "intervention carries explicit strategy module, it is used" do
       {:ok, tl, {a, b, c, _d}, _notes} = build_timeline_4()
       int = build_intervention({a, b, c})
-      int = %{int | strategy: {Zongzi.Anchor.NoteTriplet, %Zongzi.Anchor.NoteTriplet.Options{}}}
+      int = %{int | strategy: {Zongzi.Anchor.NoteTriplet, %Zongzi.Anchor.NoteTriplet.Options{orphan_direction: :next}}}
       {:ok, tl} = Timeline.delete_note(tl, b)
       result = Anchor.rebase_all([int], tl)
       assert length(result.survived) == 1

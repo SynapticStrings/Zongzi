@@ -39,7 +39,7 @@ defmodule Zongzi.Anchor.ScoredHost do
 
     defstruct match_threshold: 2,
               allow_follow_merge: false,
-              orphan_direction: :next,
+              orphan_direction: :never,
               scan_limit: 4
   end
 

@@ -29,7 +29,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
   - `:match_threshold` — 存活阈值（默认 2）。`1` = lenient（仅 current 匹配即可，适合 pitch channel）
   - `:allow_follow_merge` — 是否允许跟踪 merge 目标重定位（默认 false）
-  - `:orphan_direction` — `:prev` | `:next` | `:never`（默认 `:next`）。
+  - `:orphan_direction` — `:prev` | `:next` | `:never`（默认 `:never`）。
     `:never` 时 delete tombstone 直接报 conflict，不尝试 relocate。
   """
 
@@ -44,7 +44,7 @@ defmodule Zongzi.Anchor.NoteTriplet do
 
     defstruct match_threshold: 2,
               allow_follow_merge: false,
-              orphan_direction: :next
+              orphan_direction: :never
   end
 
   @impl true

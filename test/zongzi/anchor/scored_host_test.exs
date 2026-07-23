@@ -82,7 +82,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
                  int,
                  tl,
                  ctx(notes_by_seq: notes_map, focus_note: focus),
-                 %SHOptions{}
+                 %SHOptions{orphan_direction: :next}
                )
 
       assert meta.to == d2.seq_id
@@ -105,7 +105,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
                  int,
                  tl,
                  ctx(notes_by_seq: notes_map, focus_note: focus),
-                 %SHOptions{}
+                 %SHOptions{orphan_direction: :next}
                )
     end
   end
@@ -125,7 +125,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
                  int,
                  tl,
                  ctx(notes_by_seq: notes_map, seq_to_window: seq_to_window, focus_note: focus),
-                 %SHOptions{}
+                 %SHOptions{orphan_direction: :next}
                )
 
       assert meta.to == c.seq_id
@@ -137,7 +137,7 @@ defmodule Zongzi.Anchor.ScoredHostTest do
       {tl, [c]} = build_tl([note(60)])
       int = int_at(c.seq_id, nil, nil)
       {:ok, tl} = Timeline.delete_note(tl, c.seq_id)
-      assert ScoredHost.rebase(int, tl, ctx(), %SHOptions{}) == {:conflict, :no_host}
+      assert ScoredHost.rebase(int, tl, ctx(), %SHOptions{orphan_direction: :next}) == {:conflict, :no_host}
     end
 
     test "allow_relocate: false 时直接报 conflict" do

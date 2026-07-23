@@ -158,7 +158,7 @@ defmodule Zongzi.Intervention.SpikeTest do
     {:ok, tl} = Timeline.delete_note(tl, b)
     # tombstone → nearest_active(b, :next) 跳墓碑找到 c
     # {:relocate, updated, %{to: c}}，锚更新为 {a, c, d}（如果 d 存在）
-    assert {:ok, {:relocate, rebased, meta}} = NoteTriplet.rebase(int, tl, ctx(), %NTOptions{})
+    assert {:ok, {:relocate, rebased, meta}} = NoteTriplet.rebase(int, tl, ctx(), %NTOptions{orphan_direction: :next})
     assert meta.to == c
     assert rebased.anchor == {a, c, d}
   end
@@ -170,7 +170,7 @@ defmodule Zongzi.Intervention.SpikeTest do
 
     {:ok, tl} = Timeline.delete_note(tl, a)
     # tombstone → nearest_active(a, :next) → b
-    assert {:ok, {:relocate, rebased, meta}} = NoteTriplet.rebase(int, tl, ctx(), %NTOptions{})
+    assert {:ok, {:relocate, rebased, meta}} = NoteTriplet.rebase(int, tl, ctx(), %NTOptions{orphan_direction: :next})
     assert meta.to == b
     assert rebased.anchor == {nil, b, c}
   end

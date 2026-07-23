@@ -85,7 +85,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
       {:ok, tl} = Timeline.delete_note(tl, b)
 
       assert {:ok, {:relocate, _relocated, meta}} =
-               NoteTriplet.rebase(int, tl, ctx(), %NTOptions{})
+               NoteTriplet.rebase(int, tl, ctx(), %NTOptions{orphan_direction: :next})
 
       assert meta.from == b
       assert meta.to == c
@@ -106,7 +106,7 @@ defmodule Zongzi.Anchor.NoteTripletTest do
     test "孤儿找不到邻居 → conflict" do
       {:ok, tl, {a, _b, _c}, _notes} = build_timeline_3()
       int = build_intervention({a, 99999, nil})
-      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{}) == {:conflict, :adjacency_lost}
+      assert NoteTriplet.rebase(int, tl, ctx(), %NTOptions{orphan_direction: :next}) == {:conflict, :adjacency_lost}
     end
 
     test "orphan_direction 为 never 时直接报 conflict" do

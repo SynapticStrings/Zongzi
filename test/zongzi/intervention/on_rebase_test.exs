@@ -118,7 +118,7 @@ defmodule Zongzi.Intervention.OnRebaseTest do
       anchor: {n1.seq_id, n2.seq_id, n3.seq_id},
       payload: %{},
       snapshot: %{},
-      strategy: nil,
+      strategy: {Zongzi.Anchor.NoteTriplet, %{orphan_direction: :next}},
       declaration: MockPitchDeclaration
     }
 
