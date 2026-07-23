@@ -1,33 +1,31 @@
 defmodule Zongzi.Score.TimeSig do
-  @moduledoc """
-  拍号系统的领域模型。
-  """
+  @moduledoc "Domain model for time signature."
 
   alias Zongzi.Score.Record
 
-  # 标准拍子
+  # Simple meters
   @type standard ::
           {numerator :: pos_integer(), denominator :: pos_integer()}
           | {:standard, numerator :: pos_integer(), denominator :: pos_integer()}
 
-  # 复拍子
+  # Compound meters and irregular meters
   @type compound :: {:compound, groupings :: [pos_integer()], denominator :: pos_integer()}
 
-  # 散拍子
+  # San
   @type free :: :san
 
-  @typedoc "拍编号。"
+  @typedoc "number of bar"
   @type bar :: pos_integer()
 
-  @typedoc "拍号。"
+  @typedoc "Time signature"
   @type t :: standard() | compound() | free()
 
-  @typedoc "节拍变化事件"
+  @typedoc "Event with time signature update"
   @type time_sig_event :: {bar(), t()}
 
   @type time_sig_events :: [time_sig_event()] | {[time_sig_event()], Record.end_position()}
 
-  @doc "获取一个完整小节的 Tick 长度"
+  @doc "Get whole tick length eithin specific bar"
   def ticks_per_bar({num, den}, tpqn) when is_integer(num) and is_integer(den),
     do: ticks_per_bar({:standard, num, den}, tpqn)
 

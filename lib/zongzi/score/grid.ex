@@ -17,9 +17,7 @@ defmodule Zongzi.Score.Grid do
 
   @type grid_strategy :: :nearest | :floor | :ceil
 
-  @doc """
-  将自由刻度 `raw_tick` 吸附到指定的 `grid_type` 上。
-  """
+  @doc "将自由刻度 `raw_tick` 吸附到指定的 `grid_type` 上。"
   @spec snap_tick(Tick.numeric_tick(), grid_type(), grid_strategy(), pos_integer()) ::
           Tick.numeric_tick()
   def snap_tick(raw_tick, grid_type, strategy \\ :nearest, tpqn \\ 480)

@@ -47,9 +47,7 @@ sequenceDiagram
 
 ## 文档
 
-- `docs/zh/spec/MENTAL_MODELS.md` — 分层与角色
-- `docs/zh/spec/decisions/` — 设计决策（无编号）
-- `docs/zh/spec/GOLDEN_SCENARIOS.md` — 场景约束（骨架；用例随实现补）
+等我写完。
 
 ## 安装
 

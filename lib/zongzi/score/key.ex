@@ -16,12 +16,12 @@ defmodule Zongzi.Score.Key do
 
   @type t :: key_struct()
 
-  # ---- 基本的 CRUD ----
+  # ---- Basic CRUD ----
 
-  # 新建
+  # Create
   @callback new(any()) :: {:ok, key_struct()} | {:error, term()}
 
-  # 当前阶段暂时保留，不需要具体实现，MIDI 同理
+  # Save as stub, doesn't requied implementation new. so as from_midi/2
   @callback from_score(score_data :: term(), type :: atom(), ctx :: term()) ::
               {:ok, key_struct()} | {:error, term()}
 
@@ -38,12 +38,12 @@ defmodule Zongzi.Score.Key do
     def to_score(key, type, ctx)
     # 比方说十二平均律的钢琴卷帘窗转五线谱就需要调号作为上下文
 
-    # ---- MIDI /频率 ----
+    # ---- MIDI / Frequency ----
 
-    @doc "转换到 MIDI 编号（支持小数）"
+    @doc "Convert into MIDI number(allow float)"
     def to_midi(key)
 
-    @doc "转换到绝对频率 (Hz)"
+    @doc "Convert to frequency(Hz)"
     def to_frequency(key, reference)
   end
 

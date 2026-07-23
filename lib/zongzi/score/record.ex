@@ -1,10 +1,10 @@
 defmodule Zongzi.Score.Record do
   @moduledoc """
-  通用的、基于 Tick/Bar 的 Record 抽象。
+  General record abstraction based on tick/bar.
 
-  将 Tempo 和 TimeSig 的共同模式提取为统一的 Record 事件模型：
+  Reccord event model:
 
-  - 每个 Record 是一个位于特定位置（Tick 或 Bar）的时间线事件
+  - Every record is an event on timeline at specific location(as tick or bar)
   - Record 列表通过 `RecordMap` 编译为可二分查找的区间元组
   """
 
@@ -26,14 +26,14 @@ defmodule Zongzi.Score.Record do
 
   def open_end, do: :open_end
 
-  @typedoc "Record 携带的对应值"
+  @typedoc "Payload contained with record"
   @type value :: term()
 
   @typedoc "单个时间线的事件"
   @type t :: {position(), value()}
 
   @typedoc """
-  Record 列表。
+  List of records.
 
   可以是有限列表，也可以带上一个动态终点 `{records, last}`。
 
